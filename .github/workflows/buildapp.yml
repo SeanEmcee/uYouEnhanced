@@ -41,6 +41,11 @@ on:
         default: ""
         required: false
         type: string
+      modern_ytuhd:
+        description: "Use newer upstream PoomSmart YTUHD decoder (experimental; fallback is bundled fork)"
+        default: true
+        required: false
+        type: boolean
       upload_artifact:
         description: "Upload IPA as artifact"
         default: false
@@ -49,16 +54,6 @@ on:
       create_release:
         description: "Create a draft release"
         default: true
-        required: false
-        type: boolean
-      ytuhd:
-        description: "Include YTUHD"
-        default: false
-        required: false
-        type: boolean
-      sponsorblock:
-        description: "Include iSponsorBlock"
-        default: false
         required: false
         type: boolean
 
@@ -80,6 +75,62 @@ jobs:
           path: main
           ref: ${{ github.event.inputs.commit_id || github.ref }}
           submodules: recursive
+
+
+      - name: Record and select YTUHD decoder (v10)
+        env:
+          USE_MODERN: ${{ inputs.modern_ytuhd && '1' || '0' }}
+        run: |
+          if [ "$USE_MODERN" = "1" ]; then
+            echo "Modern upstream YTUHD requested; compiling with SIDELOAD=1"
+            rm -rf main/Tweaks/YTUHD
+            git clone --depth 1 --recurse-submodules --shallow-submodules --branch master https://github.com/PoomSmart/YTUHD.git main/Tweaks/YTUHD
+          else
+            echo "Using pinned uYouEnhanced YTUHD fork"
+          fi
+          git -C main/Tweaks/YTUHD rev-parse HEAD
+
+      - name: Register supplemental VP9 hardware if available v11
+        if: ${{ inputs.modern_ytuhd }}
+        run: python3 main/Scripts/apply_lc_hwvp9.py
+
+      - name: Apply LiveContainer PiP Lab
+        run: python3 main/Scripts/apply_lc_pip.py
+
+      - name: Apply unified edge hold v4 adapter
+        run: python3 main/Scripts/apply_lc_shorts.py
+
+      - name: Fix overlapping feed preview audio v5
+        run: python3 main/Scripts/apply_lc_preview.py
+
+      - name: Restore missing like and dislike counts v6
+        run: python3 main/Scripts/apply_lc_counts.py
+
+      - name: Repair 2x audio and guard failed load v7
+        run: python3 main/Scripts/apply_lc_playback.py
+
+      - name: Protect floating MiniPlayer gestures v8
+        run: python3 main/Scripts/apply_lc_miniplayer.py
+
+      - name: Repair MiniPlayer touch and early rendering v9
+        run: python3 main/Scripts/apply_lc_miniplayer_v9.py
+
+      - name: Add 4K 2x playback diagnostics v10
+        run: python3 main/Scripts/apply_lc_performance_v10.py
+
+      - name: Add hardware VP9 readout v11
+        run: python3 main/Scripts/apply_lc_hardware_diagnostic.py
+
+      - name: Report YTUHD selected decoder path v11
+        if: ${{ inputs.modern_ytuhd }}
+        run: python3 main/Scripts/apply_lc_decoder_path_v11.py
+
+      - name: Prefer hardware AV1 then VP9 v12
+        if: ${{ inputs.modern_ytuhd }}
+        run: python3 main/Scripts/apply_lc_av1_priority_v12.py
+
+      - name: Add automatic buffer and client rate controls v11
+        run: python3 main/Scripts/apply_lc_streaming_v11.py
 
       - name: Install Dependencies
         run: |
@@ -195,7 +246,7 @@ jobs:
           sed -i '' "s/^BUNDLE_ID .*/BUNDLE_ID = ${{ inputs.bundle_id }}/" Makefile || echo "BUNDLE_ID = ${{ inputs.bundle_id }}" >> Makefile
           sed -i '' "s/^DISPLAY_NAME .*/DISPLAY_NAME = ${{ inputs.app_name }}/" Makefile || echo "DISPLAY_NAME = ${{ inputs.app_name }}" >> Makefile
           sed -i '' "s/^export TARGET .*/export TARGET = iphone:clang:${{ inputs.sdk_version }}:15.0/" Makefile || echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:15.0" >> Makefile
-          make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1 YTUHD_ENABLED=${{ inputs.ytuhd && '1' || '0' }} SPONSORBLOCK_ENABLED=${{ inputs.sponsorblock && '1' || '0' }}
+          make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1 YTUHD_ENABLED=1 SPONSORBLOCK_ENABLED=1 SIDELOAD=1
           echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
 
         env:
@@ -316,6 +367,9 @@ jobs:
             echo "No 3.0.4 in filename or file missing: $OLD"
           fi
           echo "RENAMED_IPA=$NEW" >> "$GITHUB_ENV"
+
+      - name: Verify mandatory YouPiP, YTUHD and iSponsorBlock
+        run: python3 main/Scripts/verify_ipa.py "main/packages/$RENAMED_IPA"
 
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
