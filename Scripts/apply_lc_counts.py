@@ -34,7 +34,7 @@ static ASDisplayNode *LCFindCountButton(ASDisplayNode *node, NSString *identifie
     NSArray *children = node.yogaChildren;
     if (![children isKindOfClass:[NSArray class]]) return nil;
     for (id child in children) {
-        if (![child isKindOfClass:[ASDisplayNode class]]) continue;
+        if (![child isKindOfClass:NSClassFromString(@"ASDisplayNode")]) continue;
         ASDisplayNode *found = LCFindCountButton((ASDisplayNode *)child, identifier, depth + 1);
         if (found) return found;
     }
