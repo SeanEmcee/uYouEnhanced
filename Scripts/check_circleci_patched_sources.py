@@ -24,6 +24,22 @@ PIp_METHODS = (
 )
 
 
+# Static checks should inspect executable Objective-C tokens, not prose in
+# generated // and /* */ comments or NSString / C string literals. Otherwise
+# e.g. a migration comment mentioning UIApplication.keyWindow is a false fail.
+_NON_CODE = re.compile(
+    r'''@"(?:\\.|[^"\\])*"|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|//[^\n]*|/\*.*?\*/''',
+    flags=re.DOTALL,
+)
+
+
+def objc_code_only(source: str) -> str:
+    """Blank comments and quoted literals while preserving original newlines."""
+    return _NON_CODE.sub(
+        lambda match: re.sub(r"[^\n]", " ", match.group(0)), source
+    )
+
+
 def inspect_patch_output(root: Path) -> list[str]:
     issues: list[str] = []
     pip_tweak = root / "Tweaks/YouPiP/Tweak.x"
@@ -59,7 +75,7 @@ def inspect_patch_output(root: Path) -> list[str]:
             issues.append("Missing Logos runtime accessor: " + name)
 
     for label, code in (("YouPiP", settings), ("YTUHD", decoder)):
-        if ".keyWindow" in code:
+        if re.search(r"\.\s*keyWindow\b", objc_code_only(code)):
             issues.append(label + " calls the deprecated UIApplication.keyWindow")
     if "static UIViewController *LCPresenter(void)" not in settings:
         issues.append("Missing scene-safe YouPiP presenter implementation")
