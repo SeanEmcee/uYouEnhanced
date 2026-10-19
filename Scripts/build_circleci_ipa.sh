@@ -41,6 +41,11 @@ YT_VERSION="$("$PB" -c 'Print :CFBundleShortVersionString' .circleci-build/sourc
 unset YOUTUBE_IPA_URL
 [[ "$YT_VERSION" =~ ^[0-9]+([.][0-9]+){1,3}$ ]] || { echo "Invalid YouTube version" >&2; exit 2; }
 echo "Validated YouTube version $YT_VERSION"
+# Probe the *actual* YouTube executable before spending credits on Brew,
+# vendored codec builds, Theos and all tweak compilation.
+bash Scripts/preflight_circleci_injector.sh
+export CIRCLECI_LIEF_PYTHON="$ROOT/.circleci-build/lief-venv/bin/python"
+export CIRCLECI_LIEF_SCRIPT="$ROOT/Scripts/macho_lief_inject.py"
 
 # Fetch only compiled submodules: old unrelated pinned gitlinks may be missing.
 set -- Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing \
@@ -107,6 +112,14 @@ mkdir -p "$THEOS/sdks"
 mv ".circleci-build/sdks/iPhoneOS$SDK_VERSION.sdk" "$THEOS/sdks/"
 git clone --quiet --depth 1 https://github.com/qnblackcat/theos-jailed.git .circleci-build/theos-jailed
 .circleci-build/theos-jailed/install
+# Theos Jailed's bundled old insert_dylib silently rejected YouTube 21.41.5.
+# Preserve all of its resource and dependency packaging, but use the
+# already-probed modern LIEF Mach-O writer for its load-command insertion.
+cp Scripts/ci_macho_injector.sh "$THEOS/mod/jailed/bin/insert_dylib"
+chmod 755 "$THEOS/mod/jailed/bin/insert_dylib"
+[[ -x "$THEOS/mod/jailed/bin/insert_dylib" ]] || {
+  echo "Failed to install the verified Mach-O injector" >&2; exit 2;
+}
 while IFS= read -r -d '' file; do
   if grep -q '| head' "$file" 2>/dev/null; then
     sed -i '' 's/| head/2>\/dev\/null | head/g' "$file" 2>/dev/null || true
