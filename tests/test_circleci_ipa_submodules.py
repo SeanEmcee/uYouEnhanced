@@ -30,14 +30,20 @@ def tracked_gitlink(path: str) -> bool:
             and fields[2] == "0" and recorded_path == path)
 
 
-def required_build_submodules() -> list[str]:
-    source = BUILD.read_text(encoding="utf-8")
+def parse_build_submodules(source: str) -> list[str]:
+    """Read the unique set -- list, stopping at its *next* YTUHD guard.
+
+    The build intentionally checks MODERN_YTUHD at several later stages.
+    Those unrelated guards must not make this parser reject the list.
+    """
     start_token = "\nset -- Tweaks/"
     end_token = "\nif [[ \"$(printenv MODERN_YTUHD"
-    if source.count(start_token) != 1 or source.count(end_token) != 1:
+    if source.count(start_token) != 1:
         raise AssertionError("Cannot locate the pinned CircleCI submodule list")
     start = source.index(start_token) + len("\nset -- ")
-    end = source.index(end_token, start)
+    end = source.find(end_token, start)
+    if end < 0:
+        raise AssertionError("Cannot locate the end of the CircleCI submodule list")
     joined = source[start:end].replace("\\\n", " ")
     paths = joined.split()
     if not paths or any(not path.startswith("Tweaks/") for path in paths):
@@ -45,7 +51,29 @@ def required_build_submodules() -> list[str]:
     return paths
 
 
+def required_build_submodules() -> list[str]:
+    return parse_build_submodules(BUILD.read_text(encoding="utf-8"))
+
+
 class CircleCIGitlinks(unittest.TestCase):
+    def test_parser_ignores_later_ytuhd_guards(self):
+        synthetic = (
+            "\\nset -- Tweaks/Alderis Tweaks/YouMute \\\\\\n"
+            "  Tweaks/YouTubeHeader\\n"
+            'if [[ "$(printenv MODERN_YTUHD || true)" != true ]]; then :; fi\\n'
+            'if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then :; fi\\n'
+        )
+        expected = ["Tweaks/Alderis", "Tweaks/YouMute", "Tweaks/YouTubeHeader"]
+        self.assertEqual(parse_build_submodules(synthetic), expected)
+
+    def test_parser_rejects_missing_module_list(self):
+        with self.assertRaisesRegex(AssertionError, "Cannot locate"):
+            parse_build_submodules("if [[ true ]]; then :; fi")
+
+    def test_parser_rejects_unterminated_module_list(self):
+        with self.assertRaisesRegex(AssertionError, "end of"):
+            parse_build_submodules("\\nset -- Tweaks/Alderis\\necho unrelated")
+
     def test_every_build_module_is_a_tracked_gitlink(self):
         modules = required_build_submodules() + ["Tweaks/YTUHD"]
         self.assertEqual(len(modules), len(set(modules)), "Duplicate module")
