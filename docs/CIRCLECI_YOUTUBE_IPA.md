@@ -1,11 +1,15 @@
 # CircleCI macOS YouTube IPA delivery (PiP Lab)
 
-Status: **the YouTube 21.41.5 source download, selected submodule
-checkout, PiP/decoder patches, Homebrew dependency bootstrap, and initial Theos
-compilation have succeeded**. The most recent failure was Return YouTube
-Dislikes compiling without two YouTubeHeader files; a pinned submodule
-checkout and early header validation are now committed, not yet verified
-on CircleCI. Refresh the private signed URL before any approved build.
+Status: **CircleCI pipeline #56 progressed through PiP, Return YouTube
+Dislikes, SponsorBlock and other tweaks; modern YTUHD then failed because
+both libvpx and dav1d header paths were unresolved.** The pinned YTUHD
+Makefile now uses its own vendor root, both static decoder archives are
+explicitly built and validated on macOS before Theos, and the Linux
+preflight checks the rewritten source paths. The build also initializes
+the already-required YouMute tweak and corrects FFmpeg staging path case.
+Changes are committed, **not yet confirmed by a new macOS build**. Keep
+macOS execution disabled until the latest cheap preflight passes.
+
 This does not create a public release, install to a device, or automatically sign
 the IPA. The original decrypted YouTube application must be supplied by its
 owner from a source they are authorized to use. The build signs no Apple
@@ -186,6 +190,37 @@ rehearsal detects structural errors but **does not guarantee a macOS build**.
 Run the Linux preflight on the newest `pip-lab-v12` commit before requesting
 another approved macOS build. Use a current, unexpired CircleCI project secret
 `YOUTUBE_IPA_URL` only for the actual macOS job.
+
+## Modern YTUHD decoder dependencies and credit protection
+
+Latest failure (CircleCI #56, YouTube 21.41.5): compilation reached
+`Tweaks/YTUHD/HAMVPXVideoDecoder.m` and
+`Tweaks/YTUHD/HAMDav1dVideoDecoder.m`, which respectively could not find
+`vpx/vpx_decoder.h` and `dav1d/dav1d.h`. Both are available in the
+pinned libvpx and dav1d vendor gitlinks; nested Theos builds may resolve
+the standalone YTUHD `$(THEOS_PROJECT_DIR)` paths to the parent project.
+
+- `Scripts/prepare_circleci_ytuhd.py` rewrites only the temporary modern
+  YTUHD Makefile so every vendor include, archive and build script is
+  relative to the actual checked-out YTUHD source.
+- `Scripts/build_circleci_ytuhd_deps.sh` explicitly constructs both
+  ARM64 iPhoneOS decoder archives using upstream vendor scripts and checks
+  their existence and architecture **before** the aggregate Theos build.
+- `Scripts/ytuhd_source_revision.txt` pins modern YTUHD so low-credit
+  Linux preflight and macOS use the same reviewed source revision.
+- `tests/test_circleci_ipa_ytuhd.py` and the root-wiring regressions
+  validate the include-path rewriting and prevent future missing
+  YouMute and wrong-case FFmpeg hook failures.
+- Theos may already embed tweaks into its output IPA, so the Cyan stage
+  no longer falsely fails when no supplemental `.deb` is generated.
+  That case verifies the base IPA's required tweak dylibs instead.
+
+This protects against known structural failures, **not every future
+upstream or toolchain failure**. The Linux smoke run cannot produce ARM64
+Apple libraries; only an actual Xcode build can validate them. To avoid
+wasting macOS credits, manually run `run_ipa_preflight=true` with
+`run_ipa_build=false` on `pip-lab-v12` first and inspect any failures.
+Do not repeat a paid macOS build until the preflight has passed.
 
 ## Safety and operational limitations
 
