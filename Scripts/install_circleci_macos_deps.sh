@@ -64,6 +64,13 @@ if (( ${#missing_commands[@]} )); then
   exit 2
 fi
 
+# A failed Python post-install can leave a pipx shim present but unusable.
+# Check the interpreter-dependent CLI before proceeding to Cyan injection.
+if ! pipx --version >/dev/null 2>&1; then
+  echo "Homebrew pipx command is present but unable to start" >&2
+  exit 2
+fi
+
 if [[ "$install_failed" == true ]]; then
   echo "All required formulae and executable commands are present despite Homebrew warnings."
 fi
