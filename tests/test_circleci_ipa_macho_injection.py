@@ -53,7 +53,7 @@ class MockLIEF:
 
     MachO = SimpleNamespace(
         parse=parsed.__func__,
-        DylibCommand=SimpleNamespace(weak_lib=lambda name: name)
+        DylibCommand=SimpleNamespace(weak_lib=lambda name, ts, cv, compat: name)
     )
 
 
