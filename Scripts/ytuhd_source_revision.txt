@@ -1,0 +1,2 @@
+# PoomSmart/YTUHD pinned modern decoder source for CircleCI
+b2749d9c048fbd7c038584bd30b3866c177db2bf
