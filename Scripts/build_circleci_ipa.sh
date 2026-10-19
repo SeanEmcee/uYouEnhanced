@@ -25,7 +25,7 @@ curl --fail --location --silent --show-error --retry 2 --retry-delay 3 \
     echo "Source download failed: refresh the CircleCI project secret" >&2; exit 2;
   }
 unzip -tq .circleci-build/YouTube.ipa >/dev/null || { echo "Invalid IPA archive" >&2; exit 2; }
-unzip -Z1 .circleci-build/YouTube.ipa | grep -Fxq 'Payload/YouTube.app/Info.plist' || {
+unzip -Z1 .circleci-build/YouTube.ipa | grep -Fx 'Payload/YouTube.app/Info.plist' >/dev/null || {
   echo "Missing expected Payload/YouTube.app/Info.plist" >&2; exit 2;
 }
 unzip -q .circleci-build/YouTube.ipa -d .circleci-build/source
