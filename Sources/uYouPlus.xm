@@ -2007,46 +2007,47 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
         %init(gDisableResumeToShorts);
     }
 
-    NSArray *allKeys = [[[NSUserDefaults standardUserDefaults] dictionaryRepresentation] allKeys];
-    if (![allKeys containsObject:kHidePlayNextInQueue]) {
+    // LC_FAST_START_V13: check only required keys; no complete preferences snapshot.
+    NSUserDefaults *lcStartPrefs = [NSUserDefaults standardUserDefaults];
+    if ([lcStartPrefs objectForKey:kHidePlayNextInQueue] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kHidePlayNextInQueue];
     }
-    if (![allKeys containsObject:@"relatedVideosAtTheEndOfYTVideos"]) {
+    if ([lcStartPrefs objectForKey:@"relatedVideosAtTheEndOfYTVideos"] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"relatedVideosAtTheEndOfYTVideos"];
     }
-    if (![allKeys containsObject:@"shortsProgressBar"]) {
+    if ([lcStartPrefs objectForKey:@"shortsProgressBar"] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"shortsProgressBar"];
     }
-    if (![allKeys containsObject:@"RYD-ENABLED"]) {
+    if ([lcStartPrefs objectForKey:@"RYD-ENABLED"] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"RYD-ENABLED"];
     }
-    if (![allKeys containsObject:@"YouPiPEnabled"]) {
+    if ([lcStartPrefs objectForKey:@"YouPiPEnabled"] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"YouPiPEnabled"];
     }
-    if (![allKeys containsObject:kReplaceYTDownloadWithuYou]) {
+    if ([lcStartPrefs objectForKey:kReplaceYTDownloadWithuYou] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kReplaceYTDownloadWithuYou];
     }
-    if (![allKeys containsObject:kAdBlockWorkaroundLite]) {
+    if ([lcStartPrefs objectForKey:kAdBlockWorkaroundLite] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kAdBlockWorkaroundLite];
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:kAdBlockWorkaround];
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"removeYouTubeAds"];
     }
-    if (![allKeys containsObject:kAdBlockWorkaround]) {
+    if ([lcStartPrefs objectForKey:kAdBlockWorkaround] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:kAdBlockWorkaroundLite];
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kAdBlockWorkaround];
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"removeYouTubeAds"];
     }
-    if (![allKeys containsObject:@"noSuggestedVideoAtEnd"]) {
+    if ([lcStartPrefs objectForKey:@"noSuggestedVideoAtEnd"] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"noSuggestedVideoAtEnd"];
     }
-    if (![allKeys containsObject:@"showPlaybackRate"]) {
+    if ([lcStartPrefs objectForKey:@"showPlaybackRate"] == nil) {
         if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
             [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"showPlaybackRate"];
         } else {
             [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"showPlaybackRate"];
         }
     }
-    if (![allKeys containsObject:@"newSettingsUI_enabled"]) {
+    if ([lcStartPrefs objectForKey:@"newSettingsUI_enabled"] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kNewSettingsUI];
     }
 }
