@@ -54,9 +54,6 @@
 [submodule "Tweaks/YouTimeStamp"]
     path = Tweaks/YouTimeStamp
     url = https://github.com/aricloverEXTRA/YouTimeStamp.git
-[submodule "Tweaks/YouTube-X"]
-    path = Tweaks/YouTube-X
-    url = https://github.com/PoomSmart/YouTube-X.git
 [submodule "Tweaks/YouTubeHeader"]
     path = Tweaks/YouTubeHeader
     url = https://github.com/aricloverEXTRA/YouTubeHeader.git
