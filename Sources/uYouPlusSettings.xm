@@ -254,6 +254,12 @@ extern NSBundle *uYouPlusBundle();
 
     SWITCH(LOC(@"REPLACE_COPY_AND_PASTE_BUTTONS"), LOC(@"REPLACE_COPY_AND_PASTE_BUTTONS_DESC"), kReplaceCopyandPasteButtons);
 
+    // LC_FAST_START_V13: enable detailed host capture only for troubleshooting.
+    // Restart YouTube after changing; internal errors remain logged.
+    SWITCH2(@"Capture detailed YouTube logs",
+            @"Disabled by default to reduce startup work. Enable temporarily when investigating a problem; restart after changing.",
+            @"UYTDiagnosticsCaptureHostStderr");
+
     YTSettingsSectionItem *debugLogs = [%c(YTSettingsSectionItem)
         itemWithTitle:@"uYouEnhanced Debug Logs"
         titleDescription:[NSString stringWithFormat:@"Pipeline errors tracked: %lu — tap to export the log file", (unsigned long)UYTDebugErrorCount()]
