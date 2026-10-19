@@ -1,6 +1,10 @@
 # CircleCI macOS YouTube IPA delivery (PiP Lab)
 
-Status: **Linux preflight passed; first macOS attempt failed during source URL validation, before download or compilation**. The URL validator has now been updated to tolerate leading/trailing copied whitespace, with a separate safe check for the actual CircleCI secret.
+Status: **the signed IPA source (YouTube 21.41.5), submodule checkout,
+and PiP/decoder patch stages have all succeeded in macOS runs**. A subsequent
+attempt failed during Homebrew dependency setup. The dependency bootstrap has
+been improved but not yet validated by a new CircleCI run. Refresh the signed
+URL if necessary before any approved build.
 This does not create a public release, install to a device, or automatically sign
 the IPA. The original decrypted YouTube application must be supplied by its
 owner from a source they are authorized to use. The build signs no Apple
@@ -14,6 +18,7 @@ developer certificate: SideStore signs the resulting IPA for the device.
 - Build: `Scripts/build_circleci_ipa.sh`
 - Validation: `Scripts/verify_ipa.py`
 - Secret-safe normalization: `Scripts/normalize_circleci_ipa_url.py`
+- Homebrew macOS bootstrap: `Scripts/install_circleci_macos_deps.sh`
 
 The workflow requests CircleCI macOS `m4pro.medium` with Xcode `26.5`,
 which matches the project's `iPhoneOS26.5.sdk` target. It retains the
@@ -126,8 +131,18 @@ If the build fails:
   `run_ipa_preflight=true`, `run_ipa_build=false` workflow to confirm this
   guard before retrying the macOS job. Future submodule failures may instead
   reflect a pinned upstream commit becoming unavailable.
-- **Homebrew/Theos/SDK:** compare the failing command with the existing
-  GitHub Actions build recipe; this port has not been run on macOS yet.
+- **Homebrew:** the latest macOS attempt passed the source download,
+  all 23 selected gitlink submodules, and the PiP/decoder patch stages, but
+  `brew install` exited nonzero. Logs showed multiple failed post-install
+  warnings and automatic dependent upgrades (`pyenv`, `ruby-build`), without
+  a definitive final Homebrew error. The build now calls
+  `Scripts/install_circleci_macos_deps.sh`, which skips installed formulae,
+  disables unrelated dependent upgrades, verifies all required formulae
+  and commands, and checks that `pipx --version` works. It proceeds past a
+  nonzero Homebrew return only when these checks succeed; otherwise it names
+  the missing dependency. Run the inexpensive source preflight before
+  another macOS build. If the subsequent failure concerns Theos or the SDK,
+  compare that step with the original GitHub Actions recipe.
 - **FFmpeg:** consider a successful base build first, then explicitly opt into
   the more expensive source compile.
 - **Cyan/IPA verification:** do not distribute an incomplete IPA. Capture
