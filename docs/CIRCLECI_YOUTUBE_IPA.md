@@ -1,14 +1,12 @@
 # CircleCI macOS YouTube IPA delivery (PiP Lab)
 
-Status: **CircleCI pipeline #56 progressed through PiP, Return YouTube
-Dislikes, SponsorBlock and other tweaks; modern YTUHD then failed because
-both libvpx and dav1d header paths were unresolved.** The pinned YTUHD
-Makefile now uses its own vendor root, both static decoder archives are
-explicitly built and validated on macOS before Theos, and the Linux
-preflight checks the rewritten source paths. The build also initializes
-the already-required YouMute tweak and corrects FFmpeg staging path case.
-Changes are committed, **not yet confirmed by a new macOS build**. Keep
-macOS execution disabled until the latest cheap preflight passes.
+Status: **CircleCI #72 successfully compiled libvpx, dav1d, all third-party
+tweaks, and uYouEnhanced. Theos Jailed packaging then failed to inject the
+uYouEnhanced.dylib load command into the 21.41.5 YouTube executable.**
+The project now has a verified-write LIEF injector and an early macOS probe
+on a disposable copy of the original host binary. The Linux preflight tests
+the wrapper and failure conditions. **Neither the new injection path nor the
+final IPA has passed a live CircleCI macOS run yet.**
 
 This does not create a public release, install to a device, or automatically sign
 the IPA. The original decrypted YouTube application must be supplied by its
@@ -221,6 +219,39 @@ Apple libraries; only an actual Xcode build can validate them. To avoid
 wasting macOS credits, manually run `run_ipa_preflight=true` with
 `run_ipa_build=false` on `pip-lab-v12` first and inspect any failures.
 Do not repeat a paid macOS build until the preflight has passed.
+
+## CircleCI #72 — fix the modern Mach-O packaging blocker
+
+The native compiler was no longer the problem: all decoders and tweaks
+compiled and were staged successfully. Packaging then failed inside the
+old Theos Jailed `module/bin/ipa.sh` at the first `insert_dylib`
+invocation (`uYouEnhanced.dylib`). The old binary gave no useful diagnosis.
+
+The existing Theos Jailed packaging remains in use to preserve app
+bundle metadata, embedded frameworks, the original uYou dependency, and
+resources. Only the old `insert_dylib` executable in the temporary Theos
+installation is replaced with `Scripts/ci_macho_injector.sh`, which runs
+`Scripts/macho_lief_inject.py` on pinned LIEF 1.0.0. The replacement:
+
+- Adds a verified weak `@rpath` Mach-O load command with LIEF and reparses
+  the output before atomically replacing the executable.
+- Fails without overwriting the source executable when it cannot parse,
+  write or verify a Mach-O binary.
+- Runs `Scripts/preflight_circleci_injector.sh` on a **disposable copy** of
+  the real decrypted YouTube executable immediately after downloading it,
+  **before any submodule download, Homebrew installation, codec build, or
+  Theos compilation**. The probe independently checks the modified binary
+  with Apple's `otool`, then deletes the disposable copy.
+- Keeps the IPA URL and token out of logs, source control and generated
+  artifacts. Does not sign a final IPA; SideStore must still do that.
+
+The Linux `ipa-recipe-preflight` runs seven additional mock-LIEF atomicity
+and ordering regressions and Bash syntax checks without requiring a source
+IPA or spending macOS credits. Run the Linux preflight after this change.
+A passing Linux result is **not** proof the new LIEF writer can modify the
+actual YouTube Mach-O: only the early, fail-fast macOS probe verifies that.
+Do not assume the final IPA is usable until end-to-end packaging,
+required dylib verification and on-device signing complete.
 
 ## Safety and operational limitations
 
