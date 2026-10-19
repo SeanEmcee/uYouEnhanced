@@ -1,10 +1,11 @@
 # CircleCI macOS YouTube IPA delivery (PiP Lab)
 
-Status: **the signed IPA source (YouTube 21.41.5), submodule checkout,
-and PiP/decoder patch stages have all succeeded in macOS runs**. A subsequent
-attempt failed during Homebrew dependency setup. The dependency bootstrap has
-been improved but not yet validated by a new CircleCI run. Refresh the signed
-URL if necessary before any approved build.
+Status: **the YouTube 21.41.5 source download, selected submodule
+checkout, PiP/decoder patches, Homebrew dependency bootstrap, and initial Theos
+compilation have succeeded**. The most recent failure was Return YouTube
+Dislikes compiling without two YouTubeHeader files; a pinned submodule
+checkout and early header validation are now committed, not yet verified
+on CircleCI. Refresh the private signed URL before any approved build.
 This does not create a public release, install to a device, or automatically sign
 the IPA. The original decrypted YouTube application must be supplied by its
 owner from a source they are authorized to use. The build signs no Apple
@@ -143,6 +144,17 @@ If the build fails:
   the missing dependency. Run the inexpensive source preflight before
   another macOS build. If the subsequent failure concerns Theos or the SDK,
   compare that step with the original GitHub Actions recipe.
+- **Return YouTube Dislikes header compilation:** an October 2026 macOS
+  run reached Theos but could not find `YouTubeHeader/YTLikeStatus.h`
+  and `YouTubeHeader/YTSettingsCell.h`. The parent Makefile already exports
+  `-I$(THEOS_PROJECT_DIR)/Tweaks`; the missing dependency was the tracked
+  `Tweaks/YouTubeHeader` submodule, which had not been initialized by the
+  CircleCI script. The script now fetches it and calls
+  `Scripts/check_circleci_headers.py` before compilation.
+  The inexpensive Linux preflight initializes *only* that public submodule,
+  verifies both header files and the Makefile include path, and executes
+  seven additional offline header regression tests.
+  Run that preflight once before approving a new macOS job.
 - **FFmpeg:** consider a successful base build first, then explicitly opt into
   the more expensive source compile.
 - **Cyan/IPA verification:** do not distribute an incomplete IPA. Capture
