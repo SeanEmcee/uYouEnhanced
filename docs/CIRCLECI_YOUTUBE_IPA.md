@@ -118,8 +118,14 @@ If the build fails:
 
 - **Download step:** URL expired/redirected or returned invalid ZIP; refresh
   the CircleCI project secret, then approve a new build.
-- **Submodule step:** an upstream pinned gitlink is unavailable. Investigate
-  that exact gitlink rather than replacing the whole submodule inventory.
+- **Submodule step:** CircleCI build #7 downloaded YouTube 21.41.5 but
+  failed at `Tweaks/YouTube-X`, which was an orphaned `.gitmodules` entry,
+  not a real tracked gitlink. The CircleCI script and manifest now omit it,
+  and `test_circleci_ipa_submodules.py` checks the full list against the
+  tracked Git index before running a macOS build. Run the cheap
+  `run_ipa_preflight=true`, `run_ipa_build=false` workflow to confirm this
+  guard before retrying the macOS job. Future submodule failures may instead
+  reflect a pinned upstream commit becoming unavailable.
 - **Homebrew/Theos/SDK:** compare the failing command with the existing
   GitHub Actions build recipe; this port has not been run on macOS yet.
 - **FFmpeg:** consider a successful base build first, then explicitly opt into
