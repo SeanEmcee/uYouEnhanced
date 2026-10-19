@@ -160,6 +160,33 @@ If the build fails:
 - **Cyan/IPA verification:** do not distribute an incomplete IPA. Capture
   the failing step name and redacted message for a follow-up fix.
 
+## Compilation-surface audit (after first successful RYD compile)
+
+The following macOS failure exposed two errors when compiling
+`Tweaks/YouPiP` under the iPhoneOS 26.5 SDK:
+
+- `Settings.x` used the deprecated `UIApplication.keyWindow` property.
+  PiP settings now resolve the active `UIWindowScene` key window. Decoder,
+  codec and streaming reports in YTUHD have an independent scene-aware
+  presenter because YTUHD and YouPiP compile as separate source files.
+- Logos `%property` synthesized the PiP edge/recovery accessors at runtime
+  but Clang did not see their declarations on `YTPlayerViewController`.
+  `apply_lc_playback.py` now inserts a matching Objective-C category
+  declaration for the 10 PiP state properties and four custom selectors,
+  without changing Logos accessor behavior.
+
+The root Makefile retains third-party deprecation warnings instead of
+promoting them to fatal errors. The inexpensive Linux `ipa-recipe-preflight`
+now replays all relevant source patch scripts using the pinned YouPiP and RYD
+checkouts and the same modern YTUHD source as the macOS workflow. It checks
+Logos properties, their compiler declarations, and cross-file presenters.
+Linux cannot compile the iOS UIKit code without an Apple SDK, so a passing
+rehearsal detects structural errors but **does not guarantee a macOS build**.
+
+Run the Linux preflight on the newest `pip-lab-v12` commit before requesting
+another approved macOS build. Use a current, unexpired CircleCI project secret
+`YOUTUBE_IPA_URL` only for the actual macOS job.
+
 ## Safety and operational limitations
 
 This pipeline is deliberately not automatic for current or future repos,
