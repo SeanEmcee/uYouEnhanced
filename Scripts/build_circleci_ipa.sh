@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Unsigned uYouEnhanced IPA builder for CircleCI macOS. Never log the IPA URL.
+set -Eeuo pipefail
+set +x
+umask 077
+export HOMEBREW_NO_AUTO_UPDATE=1
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+[[ "$(printenv CIRCLE_BRANCH || true)" == pip-lab-v12 ]] || { echo "Refusing unexpected branch" >&2; exit 2; }
+[[ "$(printenv RUN_IPA_BUILD || true)" == true ]] || { echo "Build approval gate missing" >&2; exit 2; }
+[[ -n "$(printenv YOUTUBE_IPA_URL || true)" ]] || { echo "Set the CircleCI YOUTUBE_IPA_URL project secret" >&2; exit 2; }
+[[ "$YOUTUBE_IPA_URL" == https://* ]] || { echo "Expected an HTTPS source URL" >&2; exit 2; }
+case "$YOUTUBE_IPA_URL" in
+  *$'\n'*|*$'\r'*|*$'\t'*|*$' '*) echo "Invalid URL characters" >&2; exit 2 ;;
+esac
+for tool in brew git curl unzip zip python3 xcodebuild shasum; do
+  command -v "$tool" >/dev/null || { echo "Missing tool: $tool" >&2; exit 2; }
+done
+mkdir -p .circleci-build build-artifacts
+chmod 700 .circleci-build build-artifacts
+echo "Checking decrypted IPA before expensive compilation (private URL hidden)"
+curl --fail --location --silent --show-error --retry 2 --retry-delay 3 \
+  --connect-timeout 25 --max-time 900 --proto '=https' --proto-redir '=https' \
+  -o .circleci-build/YouTube.ipa "$YOUTUBE_IPA_URL" || {
+    echo "Source download failed: refresh the CircleCI project secret" >&2; exit 2;
+  }
+unzip -tq .circleci-build/YouTube.ipa >/dev/null || { echo "Invalid IPA archive" >&2; exit 2; }
+unzip -Z1 .circleci-build/YouTube.ipa | grep -Fxq 'Payload/YouTube.app/Info.plist' || {
+  echo "Missing expected Payload/YouTube.app/Info.plist" >&2; exit 2;
+}
+unzip -q .circleci-build/YouTube.ipa -d .circleci-build/source
+PB=/usr/libexec/PlistBuddy
+YT_VERSION="$("$PB" -c 'Print :CFBundleShortVersionString' .circleci-build/source/Payload/YouTube.app/Info.plist)"
+[[ "$YT_VERSION" =~ ^[0-9]+([.][0-9]+){1,3}$ ]] || { echo "Invalid YouTube version" >&2; exit 2; }
+echo "Validated YouTube version $YT_VERSION"
+
+# Fetch only compiled submodules: old unrelated pinned gitlinks may be missing.
+set -- Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing \
+  Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings \
+  Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality \
+  Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed \
+  Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy \
+  Tweaks/iSponsorBlock Tweaks/RemoteLog
+if [[ "$(printenv MODERN_YTUHD || true)" != true ]]; then set -- "$@" Tweaks/YTUHD; fi
+git submodule update --init --recursive -- "$@"
+if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
+  rm -rf Tweaks/YTUHD
+  git clone --depth 1 --recurse-submodules --branch master https://github.com/PoomSmart/YTUHD.git Tweaks/YTUHD
+  python3 Scripts/apply_lc_hwvp9.py
+fi
+for script in apply_lc_pip.py apply_lc_shorts.py apply_lc_preview.py \
+  apply_lc_counts.py apply_lc_playback.py apply_lc_miniplayer.py \
+  apply_lc_miniplayer_v9.py apply_lc_performance_v10.py \
+  apply_lc_hardware_diagnostic.py; do
+  python3 "Scripts/$script"
+done
+if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
+  python3 Scripts/apply_lc_decoder_path_v11.py
+  python3 Scripts/apply_lc_av1_priority_v12.py
+fi
+python3 Scripts/apply_lc_streaming_v11.py
+
+brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed \
+  autoconf automake libtool pkgconf pngquant
+mkdir -p "$HOME/.local/bin"
+export PATH="$(brew --prefix make)/libexec/gnubin:$HOME/.local/bin:$PATH"
+export THEOS="$ROOT/.circleci-build/theos"
+git clone --quiet --depth 1 --recurse-submodules https://github.com/theos/theos.git "$THEOS"
+SDK_VERSION=26.5
+git clone --quiet -n --depth 1 --filter=tree:0 https://github.com/aricloverALT/sdks.git .circleci-build/sdks
+git -C .circleci-build/sdks sparse-checkout set --no-cone "iPhoneOS$SDK_VERSION.sdk"
+git -C .circleci-build/sdks checkout --quiet
+mkdir -p "$THEOS/sdks"
+mv ".circleci-build/sdks/iPhoneOS$SDK_VERSION.sdk" "$THEOS/sdks/"
+git clone --quiet --depth 1 https://github.com/qnblackcat/theos-jailed.git .circleci-build/theos-jailed
+.circleci-build/theos-jailed/install
+while IFS= read -r -d '' file; do
+  if grep -q '| head' "$file" 2>/dev/null; then
+    sed -i '' 's/| head/2>\/dev\/null | head/g' "$file" 2>/dev/null || true
+  fi
+done < <(find "$THEOS" -type f \( -name '*.sh' -o -name '*.mk' \) -print0)
+pipx install --force https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
+command -v cyan >/dev/null || { echo "Cyan unavailable" >&2; exit 2; }
+curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
+  -o "$HOME/.local/bin/tbd" https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac
+chmod 755 "$HOME/.local/bin/tbd"
+if [[ "$(printenv BUILD_FFMPEG || true)" == true ]]; then
+  echo "Rebuilding FFmpegKit from source (may take 30-90+ macOS minutes)"
+  bash Tools/fetch-ffmpegkit.sh
+fi
+rm -rf Payload
+cp -R .circleci-build/source/Payload ./Payload
+export UYOU_VERSION=3.0.4
+make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app \
+  FINALPACKAGE=1 YTUHD_ENABLED=1 SPONSORBLOCK_ENABLED=1 SIDELOAD=1 \
+  SDK_VERSION="$SDK_VERSION" BUNDLE_ID=com.google.ios.youtube DISPLAY_NAME=YouTube
+PACKAGE_IPA="$(find packages -maxdepth 1 -type f -name '*.ipa' -print -quit)"
+[[ -n "$PACKAGE_IPA" && -s "$PACKAGE_IPA" ]] || { echo "Theos produced no IPA" >&2; exit 2; }
+
+git clone --quiet -n --depth 1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git .circleci-build/Safari
+git -C .circleci-build/Safari sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex
+git -C .circleci-build/Safari checkout --quiet
+EXTENSION=.circleci-build/Safari/OpenYouTubeSafariExtension.appex
+[[ -d "$EXTENSION" ]] || { echo "Missing Safari extension" >&2; exit 2; }
+set -- "$EXTENSION"
+for deb in packages/*.deb; do
+  [[ -f "$deb" ]] && set -- "$@" "$deb"
+done
+[[ "$#" -gt 1 ]] || { echo "No tweak packages found" >&2; exit 2; }
+TMP_IPA="$(printf '.circleci-build/uYouEnhanced_%s_v3.0.4.ipa' "$YT_VERSION")"
+cyan -i "$PACKAGE_IPA" -o "$TMP_IPA" -uwef "$@" -n YouTube -b com.google.ios.youtube
+[[ -s "$TMP_IPA" ]] || { echo "Cyan produced no IPA" >&2; exit 2; }
+zip -q -d "$TMP_IPA" 'Payload/*/SC_Info/*' 'Payload/*/SC_Info' 2>/dev/null || true
+unzip -Z1 "$TMP_IPA" | grep '\.appex/' | sed 's|^\(.*\.appex\)/.*|\1|' \
+  | sort -u >.circleci-build/appex-list.txt || true
+while IFS= read -r ext; do
+  [[ -n "$ext" ]] || continue
+  [[ "$ext" == */PlugIns/* ]] && continue
+  zip -q -d "$TMP_IPA" "$ext/*" || true
+done <.circleci-build/appex-list.txt
+FINAL="$(printf 'build-artifacts/uYouEnhanced_%s_v3.0.5.ipa' "$YT_VERSION")"
+cp "$TMP_IPA" "$FINAL"
+python3 Scripts/verify_ipa.py "$FINAL"
+shasum -a 256 "$FINAL" >"$FINAL.sha256"
+echo "Verified unsigned SideStore-ready IPA: $(basename "$FINAL")"
