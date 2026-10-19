@@ -46,7 +46,8 @@ def inject(binary_path: Path, library: str, lief_module=None):
     for arch in architectures:
         if library in current_libraries(arch):
             continue
-        cmd = lief_module.MachO.DylibCommand.weak_lib(library)
+        # LIEF 1.0.0 requires all Mach-O dylib version fields explicitly.
+        cmd = lief_module.MachO.DylibCommand.weak_lib(library, 0, 0, 0)
         if arch.add(cmd) is None:
             raise ValueError("LIEF refused to append a Mach-O load command")
 
