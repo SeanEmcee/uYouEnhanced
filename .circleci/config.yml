@@ -34,6 +34,10 @@ jobs:
           command: |
             bash -n Scripts/build_circleci_ipa.sh
             bash -n Scripts/install_circleci_macos_deps.sh
+            # Initialize only the small, pinned public header dependency.
+            # No private IPA download, Xcode, or macOS credit spend here.
+            git submodule update --init -- Tweaks/YouTubeHeader
+            python3 Scripts/check_circleci_headers.py
             python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
 
   # Low-credit, secret-safe check of the *actual* CircleCI project URL.
@@ -64,6 +68,7 @@ jobs:
             test "$CIRCLE_BRANCH" = pip-lab-v12
             xcodebuild -version
             bash -n Scripts/build_circleci_ipa.sh
+            test -f Scripts/check_circleci_headers.py
             test -f Scripts/build_circleci_ipa.sh
             test -f Scripts/verify_ipa.py
       - run:
