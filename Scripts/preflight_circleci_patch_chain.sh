@@ -19,7 +19,13 @@ python3 Scripts/check_circleci_headers.py
   echo "Unexpected pre-initialized YTUHD source checkout" >&2
   exit 2
 }
-git clone --quiet --depth 1 --branch master   https://github.com/PoomSmart/YTUHD.git Tweaks/YTUHD
+revision="$(grep -E '^[0-9a-f]{40}$' Scripts/ytuhd_source_revision.txt)"
+[[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { echo "Missing pinned YTUHD SHA" >&2; exit 2; }
+git init --quiet Tweaks/YTUHD
+git -C Tweaks/YTUHD remote add origin https://github.com/PoomSmart/YTUHD.git
+git -C Tweaks/YTUHD fetch --quiet --depth=1 origin "$revision"
+git -C Tweaks/YTUHD checkout --quiet --detach FETCH_HEAD
+python3 Scripts/prepare_circleci_ytuhd.py --folder Tweaks/YTUHD --source-only
 
 echo "Rehearsing the macOS patch order on throwaway CI source files."
 python3 Scripts/apply_lc_hwvp9.py
