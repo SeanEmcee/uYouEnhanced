@@ -100,6 +100,12 @@ class PatchedSourceAuditTests(unittest.TestCase):
         self.assertIn("YTUHD cannot call static YouPiP presenter", problems)
         self.assertIn("Missing local YTUHD presenter implementation", problems)
 
+    def test_clang_reports_all_errors_and_keeps_deprecation_warnings(self):
+        makefile = (ROOT / "Makefile").read_text()
+        self.assertIn("-ferror-limit=0", makefile)
+        self.assertIn("-Wno-error=deprecated-declarations", makefile)
+        self.assertIn("-I$(THEOS_PROJECT_DIR)/Tweaks", makefile)
+
     def test_real_source_generators_contain_respective_helpers(self):
         playback = (ROOT / "Scripts/apply_lc_playback.py").read_text()
         pip = (ROOT / "Scripts/apply_lc_pip.py").read_text()
