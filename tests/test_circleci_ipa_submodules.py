@@ -58,10 +58,10 @@ def required_build_submodules() -> list[str]:
 class CircleCIGitlinks(unittest.TestCase):
     def test_parser_ignores_later_ytuhd_guards(self):
         synthetic = (
-            "\\nset -- Tweaks/Alderis Tweaks/YouMute \\\\\\n"
-            "  Tweaks/YouTubeHeader\\n"
-            'if [[ "$(printenv MODERN_YTUHD || true)" != true ]]; then :; fi\\n'
-            'if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then :; fi\\n'
+            "\nset -- Tweaks/Alderis Tweaks/YouMute \\\n"
+            "  Tweaks/YouTubeHeader\n"
+            'if [[ "$(printenv MODERN_YTUHD || true)" != true ]]; then :; fi\n'
+            'if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then :; fi\n'
         )
         expected = ["Tweaks/Alderis", "Tweaks/YouMute", "Tweaks/YouTubeHeader"]
         self.assertEqual(parse_build_submodules(synthetic), expected)
@@ -72,7 +72,7 @@ class CircleCIGitlinks(unittest.TestCase):
 
     def test_parser_rejects_unterminated_module_list(self):
         with self.assertRaisesRegex(AssertionError, "end of"):
-            parse_build_submodules("\\nset -- Tweaks/Alderis\\necho unrelated")
+            parse_build_submodules("\nset -- Tweaks/Alderis\necho unrelated")
 
     def test_every_build_module_is_a_tracked_gitlink(self):
         modules = required_build_submodules() + ["Tweaks/YTUHD"]
