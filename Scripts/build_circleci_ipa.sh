@@ -46,7 +46,7 @@ echo "Validated YouTube version $YT_VERSION"
 set -- Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing \
   Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings \
   Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality \
-  Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed \
+  Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YouMute Tweaks/YTHoldForSpeed \
   Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy \
   Tweaks/iSponsorBlock Tweaks/RemoteLog Tweaks/PSHeader \
   Tweaks/YouTubeHeader Tweaks/protobuf Tweaks/libundirect
