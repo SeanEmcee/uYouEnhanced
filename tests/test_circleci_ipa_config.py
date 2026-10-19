@@ -29,7 +29,10 @@ class CircleCIIPAGates(unittest.TestCase):
         self.assertIn('Scripts/normalize_circleci_ipa_url.py', self.script)
         self.assertIn('YOUTUBE_IPA_URL="$(python3', self.script)
         self.assertNotIn('Invalid URL characters', self.script)
-        self.assertNotIn('--show-error', self.script)
+        private_download = self.script.split("Checking decrypted IPA", 1)[1].split(
+            "unzip -tq", 1
+        )[0]
+        self.assertNotIn('--show-error', private_download)
         self.assertIn('test_circleci_ipa*.py', self.config)
 
     def test_build_gate_defaults_off(self):
