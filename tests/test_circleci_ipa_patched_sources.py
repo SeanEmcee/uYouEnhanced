@@ -92,6 +92,35 @@ class PatchedSourceAuditTests(unittest.TestCase):
             inspect_patch_output(root),
         )
 
+    def test_window_api_in_generated_comments_and_literals_is_ignored(self):
+        root = self.fixture()
+        path = root / "Tweaks/YouPiP/Settings.x"
+        path.write_text(
+            path.read_text() +
+            "\n// Deprecated UIApplication.keyWindow must not be used.\n" +
+            "/* app.keyWindow is mentioned in migration notes. */\n" +
+            'NSString *note = @"UIApplication.keyWindow";\n' +
+            'const char *url = "https://example.invalid/old.keyWindow";\n' +
+            "UIWindow *current = nil;\n" +
+            "BOOL active = current.isKeyWindow;\n"
+        )
+        self.assertEqual(inspect_patch_output(root), [])
+
+    def test_real_window_api_still_fails_with_whitespace(self):
+        root = self.fixture()
+        path = root / "Tweaks/YouPiP/Settings.x"
+        path.write_text(path.read_text() + "\nUIApplication *app=nil;\n"
+                        "UIWindow *w = app.\n  keyWindow;\n")
+        self.assertIn(
+            "YouPiP calls the deprecated UIApplication.keyWindow",
+            inspect_patch_output(root),
+        )
+
+    def test_generated_pip_presenter_avoids_deprecated_accessor(self):
+        source = (ROOT / "Scripts/apply_lc_pip.py").read_text()
+        self.assertIn("candidate.isKeyWindow", source)
+        self.assertNotIn("deprecated UIApplication.keyWindow", source)
+
     def test_cross_translation_unit_helper_error_fails(self):
         root = self.fixture()
         path = root / "Tweaks/YTUHD/Settings.x"
