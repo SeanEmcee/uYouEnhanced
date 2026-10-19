@@ -70,10 +70,12 @@ class YouTubeHeaderPreflightTests(unittest.TestCase):
 
     def test_cheap_preflight_checks_checkout_and_header_layout(self):
         config = (ROOT / ".circleci" / "config.yml").read_text()
+        preflight = (ROOT / "Scripts" / "preflight_circleci_patch_chain.sh").read_text()
+        self.assertIn("bash Scripts/preflight_circleci_patch_chain.sh", config)
         self.assertIn(
-            "git submodule update --init -- Tweaks/YouTubeHeader", config
+            "git submodule update --init -- Tweaks/YouTubeHeader", preflight
         )
-        self.assertIn("python3 Scripts/check_circleci_headers.py", config)
+        self.assertIn("python3 Scripts/check_circleci_headers.py", preflight)
         self.assertIn('test_circleci_ipa*.py', config)
 
 
