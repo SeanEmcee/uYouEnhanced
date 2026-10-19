@@ -22,9 +22,9 @@ on:
         required: true
         type: string
       decrypted_youtube_url:
-        description: "Direct URL of the decrypted YouTube IPA"
+        description: "Optional direct IPA URL (overrides YOUTUBE_IPA_URL secret; input is stored in run metadata)"
         default: ""
-        required: true
+        required: false
         type: string
       bundle_id:
         description: "Modify the bundle ID"
@@ -199,25 +199,44 @@ jobs:
           wget --quiet "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd
           chmod +x /usr/local/bin/tbd
 
-      - name: Hash YT ipa url
-        run: |
-          URL_YT="$(jq -r '.inputs.decrypted_youtube_url' $GITHUB_EVENT_PATH)"
-          echo ::add-mask::$URL_YT
-          echo URL_YT=$URL_YT >> $GITHUB_ENV
-
-      - name: Prepare YouTube iPA
+      - name: Prepare YouTube IPA
         id: prepare_youtube
+        shell: bash
+        env:
+          YOUTUBE_URL_SECRET: ${{ secrets.YOUTUBE_IPA_URL }}
+          YOUTUBE_URL_INPUT: ${{ inputs.decrypted_youtube_url }}
         run: |
-          wget "$YOUTUBE_URL" --quiet -O main/YouTube.ipa
+          set -euo pipefail
+          # Prefer a fresh manual override when provided; otherwise use the
+          # private Actions secret. Never commit or print either value.
+          YOUTUBE_URL="${YOUTUBE_URL_INPUT:-${YOUTUBE_URL_SECRET:-}}"
+          if [[ -z "$YOUTUBE_URL" ]]; then
+            echo "::error::Set the Actions secret YOUTUBE_IPA_URL, or supply decrypted_youtube_url when dispatching manually."
+            exit 1
+          fi
+          echo "::add-mask::$YOUTUBE_URL"
+          if [[ "$YOUTUBE_URL" != https://* ]]; then
+            echo "::error::The IPA download URL must use HTTPS."
+            exit 1
+          fi
+
+          echo "Downloading source IPA from the selected private URL (masked)."
+          curl --fail --location --silent --show-error --retry 2 --retry-delay 3 --connect-timeout 30 --max-time 900 --output main/YouTube.ipa "$YOUTUBE_URL"
+          if ! unzip -tq main/YouTube.ipa >/dev/null 2>&1; then
+            echo "::error::The download is not a complete ZIP/IPA archive. Check whether the token expired or returned an HTML page."
+            exit 1
+          fi
+          if ! unzip -Z1 main/YouTube.ipa | grep -Fx 'Payload/YouTube.app/Info.plist' >/dev/null; then
+            echo "::error::The downloaded archive does not contain Payload/YouTube.app/Info.plist."
+            exit 1
+          fi
+
           cd main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
           youtube_version=$(defaults read "$(pwd)/Payload/YouTube.app/Info" CFBundleVersion)
-          echo "YT_VERSION=$youtube_version" >> $GITHUB_ENV
-          echo "youtube_version=${youtube_version}" >> $GITHUB_OUTPUT
-
-        env:
-          YOUTUBE_URL: ${{ env.URL_YT }}
+          echo "YT_VERSION=$youtube_version" >> "$GITHUB_ENV"
+          echo "youtube_version=${youtube_version}" >> "$GITHUB_OUTPUT"
 
       - name: Restore FFmpegKit cache
         id: ffmpeg_cache
