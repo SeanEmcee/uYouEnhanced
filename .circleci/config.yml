@@ -34,8 +34,9 @@ jobs:
           command: |
             bash -n Scripts/build_circleci_ipa.sh
             bash -n Scripts/install_circleci_macos_deps.sh
+            bash -n Scripts/build_circleci_ytuhd_deps.sh
             bash -n Scripts/preflight_circleci_patch_chain.sh
-            python3 -m compileall -q Scripts/check_circleci_patched_sources.py
+            python3 -m compileall -q Scripts/check_circleci_patched_sources.py Scripts/prepare_circleci_ytuhd.py
             python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
             # Rehearse all source edits with actual pinned submodules.
             # No private host IPA, Xcode, or macOS credits used here.
