@@ -66,7 +66,132 @@ git submodule update --init --recursive -- "$@"
 python3 Scripts/check_circleci_headers.py
 if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
   rm -rf Tweaks/YTUHD
-  git clone --depth 1 --recurse-submodules --branch master https://github.com/PoomSmart/YTUHD.git Tweaks/YTUHD
+  # Use the same pinned modern source in Linux preflight and macOS.
+  ytuhd_revision="$(grep -E '^[0-9a-f]{40}
+  python3 Scripts/apply_lc_hwvp9.py
+fi
+for script in apply_lc_pip.py apply_lc_shorts.py apply_lc_preview.py \
+  apply_lc_counts.py apply_lc_playback.py apply_lc_miniplayer.py \
+  apply_lc_miniplayer_v9.py apply_lc_performance_v10.py \
+  apply_lc_hardware_diagnostic.py; do
+  python3 "Scripts/$script"
+done
+if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
+  python3 Scripts/apply_lc_decoder_path_v11.py
+  python3 Scripts/apply_lc_av1_priority_v12.py
+fi
+python3 Scripts/apply_lc_streaming_v11.py
+
+echo "Preparing macOS dependencies (no unrelated Homebrew upgrades)."
+bash Scripts/install_circleci_macos_deps.sh
+mkdir -p "$HOME/.local/bin"
+export PATH="$(brew --prefix make)/libexec/gnubin:$HOME/.local/bin:$PATH"
+export THEOS="$ROOT/.circleci-build/theos"
+git clone --quiet --depth 1 --recurse-submodules https://github.com/theos/theos.git "$THEOS"
+SDK_VERSION=26.5
+git clone --quiet -n --depth 1 --filter=tree:0 https://github.com/aricloverEXTRA/sdks.git .circleci-build/sdks
+git -C .circleci-build/sdks sparse-checkout set --no-cone "iPhoneOS$SDK_VERSION.sdk"
+git -C .circleci-build/sdks checkout --quiet
+mkdir -p "$THEOS/sdks"
+mv ".circleci-build/sdks/iPhoneOS$SDK_VERSION.sdk" "$THEOS/sdks/"
+git clone --quiet --depth 1 https://github.com/qnblackcat/theos-jailed.git .circleci-build/theos-jailed
+.circleci-build/theos-jailed/install
+while IFS= read -r -d '' file; do
+  if grep -q '| head' "$file" 2>/dev/null; then
+    sed -i '' 's/| head/2>\/dev\/null | head/g' "$file" 2>/dev/null || true
+  fi
+done < <(find "$THEOS" -type f \( -name '*.sh' -o -name '*.mk' \) -print0)
+pipx install --force https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
+command -v cyan >/dev/null || { echo "Cyan unavailable" >&2; exit 2; }
+curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
+  -o "$HOME/.local/bin/tbd" https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac
+chmod 755 "$HOME/.local/bin/tbd"
+if [[ "$(printenv BUILD_FFMPEG || true)" == true ]]; then
+  echo "Rebuilding FFmpegKit from source (may take 30-90+ macOS minutes)"
+  bash Tools/fetch-ffmpegkit.sh
+fi
+rm -rf Payload
+cp -R .circleci-build/source/Payload ./Payload
+export UYOU_VERSION=3.0.4
+make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app \
+  FINALPACKAGE=1 YTUHD_ENABLED=1 SPONSORBLOCK_ENABLED=1 SIDELOAD=1 \
+  SDK_VERSION="$SDK_VERSION" BUNDLE_ID=com.google.ios.youtube DISPLAY_NAME=YouTube
+PACKAGE_IPA="$(find packages -maxdepth 1 -type f -name '*.ipa' -print -quit)"
+[[ -n "$PACKAGE_IPA" && -s "$PACKAGE_IPA" ]] || { echo "Theos produced no IPA" >&2; exit 2; }
+
+git clone --quiet -n --depth 1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git .circleci-build/Safari
+git -C .circleci-build/Safari sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex
+git -C .circleci-build/Safari checkout --quiet
+EXTENSION=.circleci-build/Safari/OpenYouTubeSafariExtension.appex
+[[ -d "$EXTENSION" ]] || { echo "Missing Safari extension" >&2; exit 2; }
+set -- "$EXTENSION"
+for deb in packages/*.deb; do
+  [[ -f "$deb" ]] && set -- "$@" "$deb"
+done
+[[ "$#" -gt 1 ]] || { echo "No tweak packages found" >&2; exit 2; }
+TMP_IPA="$(printf '.circleci-build/uYouEnhanced_%s_v3.0.4.ipa' "$YT_VERSION")"
+cyan -i "$PACKAGE_IPA" -o "$TMP_IPA" -uwef "$@" -n YouTube -b com.google.ios.youtube
+[[ -s "$TMP_IPA" ]] || { echo "Cyan produced no IPA" >&2; exit 2; }
+zip -q -d "$TMP_IPA" 'Payload/*/SC_Info/*' 'Payload/*/SC_Info' 2>/dev/null || true
+unzip -Z1 "$TMP_IPA" | grep '\.appex/' | sed 's|^\(.*\.appex\)/.*|\1|' \
+  | sort -u >.circleci-build/appex-list.txt || true
+while IFS= read -r ext; do
+  [[ -n "$ext" ]] || continue
+  [[ "$ext" == */PlugIns/* ]] && continue
+  zip -q -d "$TMP_IPA" "$ext/*" || true
+done <.circleci-build/appex-list.txt
+# Preserve the alternate app icons present in the original GitHub workflow.
+# Validate opacity/size so iOS does not refuse malformed alternate icons.
+mkdir -p .circleci-build/iconwork/icons
+(
+  cd .circleci-build/iconwork
+  unzip -q "$ROOT/$TMP_IPA" 'Payload/YouTube.app/Info.plist'
+  for source_icon in "$ROOT"/Localizations/uYouPlus.bundle/AppIcons/*.png; do
+    [[ -f "$source_icon" ]] || continue
+    target="icons/$(basename "$source_icon")"
+    pngquant --quality=80-95 --strip --skip-if-larger "$source_icon" \
+      --output "$target" >/dev/null 2>&1 || true
+    [[ -f "$target" ]] || cp "$source_icon" "$target"
+  done
+  for icon in icons/*.png; do
+    [[ -f "$icon" ]] || continue
+    spec="$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$icon" 2>/dev/null |
+      awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} /hasAlpha/{a=$2} END{print w"x"h" alpha="a}')"
+    [[ "$spec" == "1024x1024 alpha=no"* ]] || {
+      echo "Bad alternate icon dimensions or alpha: $(basename "$icon")" >&2
+      exit 2
+    }
+  done
+  plist=Payload/YouTube.app/Info.plist
+  for key in CFBundleIcons 'CFBundleIcons~ipad'; do
+    "$PB" -c "Add :$key dict" "$plist" 2>/dev/null || true
+    "$PB" -c "Add :$key:CFBundleAlternateIcons dict" "$plist" 2>/dev/null || true
+  done
+  for icon in icons/*.png; do
+    [[ -f "$icon" ]] || continue
+    name="$(basename "$icon" .png)"
+    cp "$icon" "Payload/YouTube.app/$name.png"
+    for key in CFBundleIcons 'CFBundleIcons~ipad'; do
+      "$PB" -c "Add :$key:CFBundleAlternateIcons:$name dict" "$plist" 2>/dev/null || true
+      "$PB" -c "Add :$key:CFBundleAlternateIcons:$name:CFBundleIconFiles array" "$plist" 2>/dev/null || true
+      "$PB" -c "Add :$key:CFBundleAlternateIcons:$name:CFBundleIconFiles:0 string $name" "$plist" 2>/dev/null || true
+    done
+  done
+  zip -q "$ROOT/$TMP_IPA" "$plist" Payload/YouTube.app/*.png
+)
+FINAL="$(printf 'build-artifacts/uYouEnhanced_%s_v3.0.5.ipa' "$YT_VERSION")"
+cp "$TMP_IPA" "$FINAL"
+python3 Scripts/verify_ipa.py "$FINAL"
+shasum -a 256 "$FINAL" >"$FINAL.sha256"
+echo "Verified unsigned SideStore-ready IPA: $(basename "$FINAL")"
+ Scripts/ytuhd_source_revision.txt)"
+  [[ "$ytuhd_revision" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid YTUHD revision pin" >&2; exit 2; }
+  git init --quiet Tweaks/YTUHD
+  git -C Tweaks/YTUHD remote add origin https://github.com/PoomSmart/YTUHD.git
+  git -C Tweaks/YTUHD fetch --quiet --depth=1 origin "$ytuhd_revision"
+  git -C Tweaks/YTUHD checkout --quiet --detach FETCH_HEAD
+  git -C Tweaks/YTUHD submodule update --init --recursive -- vendor/libvpx vendor/dav1d
+  python3 Scripts/prepare_circleci_ytuhd.py --folder Tweaks/YTUHD
   python3 Scripts/apply_lc_hwvp9.py
 fi
 for script in apply_lc_pip.py apply_lc_shorts.py apply_lc_preview.py \
