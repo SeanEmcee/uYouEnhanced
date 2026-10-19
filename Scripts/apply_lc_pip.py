@@ -95,8 +95,28 @@ static void LCSetABFlag(NSString *flagName, BOOL enabled) {
 }
 
 static UIViewController *LCPresenter(void) {
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    UIViewController *controller = window.rootViewController;
+    // Use the active scene's key window instead of deprecated UIApplication.keyWindow.
+    // This also avoids accidentally showing alerts over a background scene.
+    UIApplication *application = [UIApplication sharedApplication];
+    UIWindow *selectedWindow = nil;
+    for (UIScene *scene in application.connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]] ||
+            scene.activationState != UISceneActivationStateForegroundActive) continue;
+        UIWindowScene *windowScene = (UIWindowScene *)scene;
+        for (UIWindow *candidate in windowScene.windows) {
+            if (candidate.isKeyWindow) { selectedWindow = candidate; break; }
+        }
+        if (!selectedWindow) {
+            for (UIWindow *candidate in windowScene.windows) {
+                if (!candidate.hidden && candidate.windowLevel == UIWindowLevelNormal) {
+                    selectedWindow = candidate;
+                    break;
+                }
+            }
+        }
+        if (selectedWindow) break;
+    }
+    UIViewController *controller = selectedWindow.rootViewController;
     while (controller.presentedViewController) controller = controller.presentedViewController;
     return controller;
 }
