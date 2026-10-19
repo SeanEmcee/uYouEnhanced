@@ -44,7 +44,7 @@ UI=r'''    // LC_DECODER_PATH_V11
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Decoder path copied"
                 message:report preferredStyle:UIAlertControllerStyleAlert];
             [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            UIViewController *vc=LCPresenter();
+            UIViewController *vc=LCYTUHDPresenter();
             while (vc.presentedViewController) vc=vc.presentedViewController;
             if (vc) [vc presentViewController:alert animated:YES completion:nil];
             return YES;
