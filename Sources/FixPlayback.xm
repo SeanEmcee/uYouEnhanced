@@ -62,6 +62,14 @@ static BOOL UYTFixIsVideoPlaybackPath(NSString *path) {
     return [path.lowercaseString containsString:UYTFixEndpointVideoPlayback.lowercaseString];
 }
 
+// LC_FAST_START_V13: avoid copying and rewriting non-playback network requests.
+// Preserve the existing request transformation and compatible renderer behavior.
+static BOOL UYTFixIsPlaybackURL(NSURL *url) {
+    if (!url) return NO;
+    NSString *path = url.path;
+    return UYTFixIsPlayerPath(path) || UYTFixIsVideoPlaybackPath(path);
+}
+
 static NSDictionary *UYTFixClientBlueprint(NSString *visitorData) {
     NSMutableDictionary *client = [NSMutableDictionary dictionary];
     client[@"clientName"] = @"TVHTML5_SIMPLY";
@@ -142,6 +150,7 @@ static void UYTFixHandleRequest(NSMutableURLRequest *request) {
 - (id)initWithURL:(NSURL *)URL cachePolicy:(unsigned long long)cachePolicy timeoutInterval:(double)timeoutInterval {
     self = %orig;
     if (!self || !URL) return self;
+    if (!UYTFixIsPlaybackURL(URL)) return self;
     if ([URL.absoluteString containsString:@"youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc"]) return self;
     UYTFixHandleRequest(self);
     return self;
@@ -152,7 +161,7 @@ static void UYTFixHandleRequest(NSMutableURLRequest *request) {
 %hook GTMSessionFetcher
 
 - (id)initWithRequest:(id)request {
-    if ([request isKindOfClass:[NSURLRequest class]] && [request URL]) {
+    if ([request isKindOfClass:[NSURLRequest class]] && UYTFixIsPlaybackURL([request URL])) {
         NSMutableURLRequest *patched = [request mutableCopy];
         UYTFixHandleRequest(patched);
         request = patched;
@@ -161,7 +170,7 @@ static void UYTFixHandleRequest(NSMutableURLRequest *request) {
 }
 
 - (id)initWithRequest:(id)request configuration:(id)configuration {
-    if ([request isKindOfClass:[NSURLRequest class]] && [request URL]) {
+    if ([request isKindOfClass:[NSURLRequest class]] && UYTFixIsPlaybackURL([request URL])) {
         NSMutableURLRequest *patched = [request mutableCopy];
         UYTFixHandleRequest(patched);
         request = patched;
@@ -170,14 +179,14 @@ static void UYTFixHandleRequest(NSMutableURLRequest *request) {
 }
 
 - (void)updateMutableRequest:(id)request {
-    if ([request isKindOfClass:[NSMutableURLRequest class]]) UYTFixHandleRequest(request);
+    if ([request isKindOfClass:[NSMutableURLRequest class]] && UYTFixIsPlaybackURL([request URL])) UYTFixHandleRequest(request);
     %orig(request);
 }
 
 - (void)setRequestValue:(id)value forHTTPHeaderField:(id)field {
     %orig(value, field);
     NSMutableURLRequest *request = [self mutableRequestForTesting];
-    if (![request isKindOfClass:[NSMutableURLRequest class]] || !request.URL) return;
+    if (![request isKindOfClass:[NSMutableURLRequest class]] || !UYTFixIsPlaybackURL(request.URL)) return;
     NSString *path = request.URL.path;
     if (UYTFixIsPlayerPath(path)) UYTFixApplyHeaders(request, YES);
     else if (UYTFixIsVideoPlaybackPath(path)) UYTFixApplyHeaders(request, NO);
@@ -186,7 +195,7 @@ static void UYTFixHandleRequest(NSMutableURLRequest *request) {
 - (void)setBodyData:(id)data {
     %orig(data);
     NSMutableURLRequest *request = [self mutableRequestForTesting];
-    if ([request isKindOfClass:[NSMutableURLRequest class]]) UYTFixApplyBody(request);
+    if ([request isKindOfClass:[NSMutableURLRequest class]] && UYTFixIsPlaybackURL([request URL])) UYTFixApplyBody(request);
 }
 
 %end
