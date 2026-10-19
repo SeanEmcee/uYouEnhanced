@@ -8,18 +8,20 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 [[ "$(printenv CIRCLE_BRANCH || true)" == pip-lab-v12 ]] || { echo "Refusing unexpected branch" >&2; exit 2; }
 [[ "$(printenv RUN_IPA_BUILD || true)" == true ]] || { echo "Build approval gate missing" >&2; exit 2; }
-[[ -n "$(printenv YOUTUBE_IPA_URL || true)" ]] || { echo "Set the CircleCI YOUTUBE_IPA_URL project secret" >&2; exit 2; }
-[[ "$YOUTUBE_IPA_URL" == https://* ]] || { echo "Expected an HTTPS source URL" >&2; exit 2; }
-case "$YOUTUBE_IPA_URL" in
-  *$'\n'*|*$'\r'*|*$'\t'*|*$' '*) echo "Invalid URL characters" >&2; exit 2 ;;
-esac
+# Remove accidental leading/trailing copied whitespace, but reject any
+# whitespace *within* the URL. The validator reads CircleCI's secret only
+# through the environment and returns the value through captured stdout.
+# Do not echo this variable, including when the source provider returns 4xx.
+command -v python3 >/dev/null || { echo "Python 3 is required" >&2; exit 2; }
+YOUTUBE_IPA_URL="$(python3 Scripts/normalize_circleci_ipa_url.py)" || exit 2
+export YOUTUBE_IPA_URL
 for tool in brew git curl unzip zip python3 xcodebuild shasum; do
   command -v "$tool" >/dev/null || { echo "Missing tool: $tool" >&2; exit 2; }
 done
 mkdir -p .circleci-build build-artifacts
 chmod 700 .circleci-build build-artifacts
 echo "Checking decrypted IPA before expensive compilation (private URL hidden)"
-curl --fail --location --silent --show-error --retry 2 --retry-delay 3 \
+curl --fail --location --silent --retry 2 --retry-delay 3 \
   --connect-timeout 25 --max-time 900 --proto '=https' --proto-redir '=https' \
   -o .circleci-build/YouTube.ipa "$YOUTUBE_IPA_URL" || {
     echo "Source download failed: refresh the CircleCI project secret" >&2; exit 2;
