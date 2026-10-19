@@ -95,7 +95,7 @@ static void LCSetABFlag(NSString *flagName, BOOL enabled) {
 }
 
 static UIViewController *LCPresenter(void) {
-    // Use the active scene's key window instead of deprecated UIApplication.keyWindow.
+    // Prefer the foreground scene's key window over deprecated app-wide access.
     // This also avoids accidentally showing alerts over a background scene.
     UIApplication *application = [UIApplication sharedApplication];
     UIWindow *selectedWindow = nil;
