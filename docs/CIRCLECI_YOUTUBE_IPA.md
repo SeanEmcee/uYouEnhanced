@@ -41,6 +41,15 @@ binary through source control.
    to `false` avoids that rebuild but may reduce media conversion features
    if no prebuilt frameworks are available.
 
+## Cheap preflight before using a Mac (recommended)
+
+Trigger a manual pipeline on `pip-lab-v12` with `run_ipa_preflight=true`
+and `run_ipa_build=false`. This starts a small Linux validation job that
+checks Bash syntax and eight source-level safety regressions, without
+reading or downloading the decrypted IPA and without allocating a macOS VM.
+This still consumes a small number of CircleCI credits; check your Free
+balance first. The preflight is independent of the macOS build gate.
+
 ## Run exactly one build (requires owner approval)
 
 In the existing CircleCI project's **Pipelines → Trigger Pipeline** page,
@@ -49,11 +58,13 @@ non-secret pipeline parameters:
 
 | Parameter | Type | Suggested initial value |
 | --- | --- | --- |
+| `run_ipa_preflight` | Boolean | `false` (run separately first) |
 | `run_ipa_build` | Boolean | `true` |
 | `modern_ytuhd` | Boolean | `true` |
 | `build_ffmpeg` | Boolean | `false` for a faster first build, `true` for a full source rebuild |
 
-The default for `run_ipa_build` is **false**. Setting it to `true`
+Both `run_ipa_preflight` and `run_ipa_build` default to **false**.
+Setting `run_ipa_build` to `true`
 only opens the `approve-youtube-ipa` job. Approve that gate **in CircleCI**
 after checking the repo, branch, credit use and secret freshness. Only then
 is the macOS `build-youtube-ipa` job scheduled.
