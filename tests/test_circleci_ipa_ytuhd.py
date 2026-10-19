@@ -79,8 +79,7 @@ class ModernYTUHDDependencies(unittest.TestCase):
             build.index("make package THEOS_PACKAGE_SCHEME=rootless"),
         )
         self.assertIn("prepare_circleci_ytuhd.py", build)
-        self.assertIn("build_libvpx.sh", helper.replace("$library", "libvpx")
-                         if False else "build_libvpx.sh")
+        self.assertIn('bash "$folder/vendor/build_$library.sh"', helper)
         self.assertIn("libvpx:libvpx_ios/libvpx.a", helper)
         self.assertIn("dav1d:dav1d_ios/libdav1d.a", helper)
         self.assertIn('xcrun lipo -archs "$archive"', helper)
