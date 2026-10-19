@@ -67,7 +67,10 @@ class CircleCIIPAGates(unittest.TestCase):
 
     def test_download_before_spending_long_build_time(self):
         self.assertLess(self.script.index("Checking decrypted IPA"),
-                        self.script.index("brew install"))
+                        self.script.index("bash Scripts/install_circleci_macos_deps.sh"))
+        self.assertIn("unset YOUTUBE_IPA_URL", self.script)
+        self.assertLess(self.script.index("unset YOUTUBE_IPA_URL"),
+                        self.script.index("bash Scripts/install_circleci_macos_deps.sh"))
         self.assertIn("unzip -tq", self.script)
 
     def test_mandatory_hooks_and_sidecar_preserved(self):
