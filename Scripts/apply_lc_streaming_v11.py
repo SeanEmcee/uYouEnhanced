@@ -87,7 +87,7 @@ SETTINGS_CONTENT = r'''    // LC_STREAMING_V11: Values are AVPlayer hints, NOT C
                 }]];
             }
             [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-            UIViewController *presenter=LCPresenter();
+            UIViewController *presenter=LCYTUHDPresenter();
             while (presenter.presentedViewController) presenter=presenter.presentedViewController;
             if (presenter) [presenter presentViewController:sheet animated:YES completion:nil];
             return YES;
@@ -114,7 +114,7 @@ SETTINGS_CONTENT = r'''    // LC_STREAMING_V11: Values are AVPlayer hints, NOT C
                 }]];
             }
             [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-            UIViewController *presenter=LCPresenter();
+            UIViewController *presenter=LCYTUHDPresenter();
             while (presenter.presentedViewController) presenter=presenter.presentedViewController;
             if (presenter) [presenter presentViewController:sheet animated:YES completion:nil];
             return YES;
@@ -137,7 +137,7 @@ SETTINGS_CONTENT = r'''    // LC_STREAMING_V11: Values are AVPlayer hints, NOT C
             UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Streaming state copied"
                 message:report preferredStyle:UIAlertControllerStyleAlert];
             [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            UIViewController *p=LCPresenter();
+            UIViewController *p=LCYTUHDPresenter();
             while (p.presentedViewController) p=p.presentedViewController;
             if (p) [p presentViewController:a animated:YES completion:nil];
             return YES;
@@ -145,12 +145,37 @@ SETTINGS_CONTENT = r'''    // LC_STREAMING_V11: Values are AVPlayer hints, NOT C
     [sectionItems addObject:lcStreamState];
 '''
 
+# Shared by the streaming, decoder and codec-report UI patches. All three
+# patches land in YTUHD/Settings.x, a different translation unit from YouPiP.
+# It must not call the static YouPiP-only LCYTUHDPresenter() function.
+SCENE_PRESENTER = r'''
+// LC_YTUHD_SCENE_PRESENTER_V11
+#import <UIKit/UIKit.h>
+static UIViewController *LCYTUHDPresenter(void) {
+    UIApplication *app = [UIApplication sharedApplication];
+    for (UIScene *scene in app.connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]] ||
+            scene.activationState != UISceneActivationStateForegroundActive) continue;
+        UIWindowScene *windowScene = (UIWindowScene *)scene;
+        UIWindow *fallback = nil;
+        for (UIWindow *window in windowScene.windows) {
+            if (window.isKeyWindow) return window.rootViewController;
+            if (!window.hidden && window.windowLevel == UIWindowLevelNormal)
+                fallback = window;
+        }
+        if (fallback) return fallback.rootViewController;
+    }
+    return nil;
+}
+'''
+
+
 def patch_settings(text):
     if MARK in text: raise RuntimeError('v11 streaming settings already installed')
     options=[anchor for anchor in ANCHORS if text.count(anchor)==1]
     if len(options)!=1: raise RuntimeError('YTUHD settings changed: no unique modern/legacy insertion anchor')
     anchor=options[0]
-    return text.replace(anchor,anchor+'\n'+SETTINGS_CONTENT,1)
+    return SCENE_PRESENTER + '\n' + text.replace(anchor,anchor+'\n'+SETTINGS_CONTENT,1)
 
 def main():
     if SOURCE.exists(): raise RuntimeError('refusing to overwrite existing streaming module')
