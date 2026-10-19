@@ -2009,6 +2009,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 
     // LC_FAST_START_V13: check only required keys; no complete preferences snapshot.
     NSUserDefaults *lcStartPrefs = [NSUserDefaults standardUserDefaults];
+    // Snapshot coupled first-run flags before either initializer mutates them.
+    BOOL lcHasLiteAdBlockKey = [lcStartPrefs objectForKey:kAdBlockWorkaroundLite] != nil;
+    BOOL lcHasFullAdBlockKey = [lcStartPrefs objectForKey:kAdBlockWorkaround] != nil;
     if ([lcStartPrefs objectForKey:kHidePlayNextInQueue] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kHidePlayNextInQueue];
     }
@@ -2027,12 +2030,12 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     if ([lcStartPrefs objectForKey:kReplaceYTDownloadWithuYou] == nil) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kReplaceYTDownloadWithuYou];
     }
-    if ([lcStartPrefs objectForKey:kAdBlockWorkaroundLite] == nil) {
+    if (!lcHasLiteAdBlockKey) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kAdBlockWorkaroundLite];
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:kAdBlockWorkaround];
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"removeYouTubeAds"];
     }
-    if ([lcStartPrefs objectForKey:kAdBlockWorkaround] == nil) {
+    if (!lcHasFullAdBlockKey) {
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:kAdBlockWorkaroundLite];
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kAdBlockWorkaround];
         [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"removeYouTubeAds"];
