@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Source-only macOS build patch rehearsal on CircleCI's inexpensive Linux image.
+# Never download the copyrighted host IPA, build tools, or consume macOS credits.
+set -Eeuo pipefail
+set +x
+cd "$(dirname "$0")/.."
+unset YOUTUBE_IPA_URL
+[[ "${CIRCLE_BRANCH:-}" == "pip-lab-v12" ]] || {
+  echo "Refusing to replay sources outside pip-lab-v12" >&2
+  exit 2
+}
+echo "Initializing pinned PiP, dislike, and header source dependencies."
+git submodule update --init -- Tweaks/YouTubeHeader Tweaks/YouPiP Tweaks/Return-YouTube-Dislikes
+python3 Scripts/check_circleci_headers.py
+
+# This smoke clone intentionally avoids the large native decoder submodules:
+# patch generators touch only the modern YTUHD Objective-C source and settings.
+[[ ! -e Tweaks/YTUHD/Tweak.xm ]] || {
+  echo "Unexpected pre-initialized YTUHD source checkout" >&2
+  exit 2
+}
+git clone --quiet --depth 1 --branch master   https://github.com/PoomSmart/YTUHD.git Tweaks/YTUHD
+
+echo "Rehearsing the macOS patch order on throwaway CI source files."
+python3 Scripts/apply_lc_hwvp9.py
+for script in   apply_lc_pip.py apply_lc_shorts.py apply_lc_preview.py   apply_lc_counts.py apply_lc_playback.py apply_lc_miniplayer.py   apply_lc_miniplayer_v9.py apply_lc_performance_v10.py   apply_lc_hardware_diagnostic.py; do
+  python3 "Scripts/$script"
+done
+python3 Scripts/apply_lc_decoder_path_v11.py
+python3 Scripts/apply_lc_av1_priority_v12.py
+python3 Scripts/apply_lc_streaming_v11.py
+python3 Scripts/check_circleci_patched_sources.py
+echo "Source patch rehearsal succeeded (not an Xcode compilation)."
