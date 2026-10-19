@@ -1,0 +1,63 @@
+# uYouEnhanced macOS IPA delivery pipeline.
+# Default OFF: pushing commits does not start an expensive macOS build.
+# The source IPA URL belongs in CircleCI Project Settings > Environment Variables
+# as YOUTUBE_IPA_URL, never in pipeline parameters, git, or job logs.
+version: 2.1
+
+parameters:
+  run_ipa_build:
+    type: boolean
+    default: false
+  build_ffmpeg:
+    type: boolean
+    default: false
+  modern_ytuhd:
+    type: boolean
+    default: true
+
+jobs:
+  build-youtube-ipa:
+    macos:
+      xcode: "26.5"
+    resource_class: m4pro.medium
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Validate source branch and available Xcode
+          command: |
+            set -euo pipefail
+            test "$CIRCLE_BRANCH" = pip-lab-v12
+            xcodebuild -version
+            test -f Scripts/build_circleci_ipa.sh
+            test -f Scripts/verify_ipa.py
+      - run:
+          name: Prepare verified unsigned SideStore IPA
+          no_output_timeout: 30m
+          command: |
+            export RUN_IPA_BUILD=true
+            export BUILD_FFMPEG="<< pipeline.parameters.build_ffmpeg >>"
+            export MODERN_YTUHD="<< pipeline.parameters.modern_ytuhd >>"
+            bash Scripts/build_circleci_ipa.sh
+      - store_artifacts:
+          path: build-artifacts
+          destination: youtube-ipa
+
+workflows:
+  manual-youtube-ipa:
+    when: << pipeline.parameters.run_ipa_build >>
+    jobs:
+      # The macOS VM is NOT allocated until the user approves in CircleCI.
+      - approve-youtube-ipa:
+          type: approval
+          filters:
+            branches:
+              only:
+                - pip-lab-v12
+      - build-youtube-ipa:
+          requires:
+            - approve-youtube-ipa
+          filters:
+            branches:
+              only:
+                - pip-lab-v12
