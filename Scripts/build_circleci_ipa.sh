@@ -139,7 +139,13 @@ set -- "$EXTENSION"
 for deb in packages/*.deb; do
   [[ -f "$deb" ]] && set -- "$@" "$deb"
 done
-[[ "$#" -gt 1 ]] || { echo "No tweak packages found" >&2; exit 2; }
+# Theos jailed builds embed dylibs in the base IPA. Some revisions emit
+# no intermediate .deb files at all; the Safari .appex is still a valid
+# Cyan -f input. Verify the already-embedded tweaks instead of aborting.
+if [[ "$#" -eq 1 ]]; then
+  echo "No supplemental .deb packages; verifying Theos-embedded tweaks."
+  python3 Scripts/verify_ipa.py "$PACKAGE_IPA"
+fi
 TMP_IPA="$(printf '.circleci-build/uYouEnhanced_%s_v3.0.4.ipa' "$YT_VERSION")"
 cyan -i "$PACKAGE_IPA" -o "$TMP_IPA" -uwef "$@" -n YouTube -b com.google.ios.youtube
 [[ -s "$TMP_IPA" ]] || { echo "Cyan produced no IPA" >&2; exit 2; }
