@@ -4,6 +4,10 @@ set -Eeuo pipefail
 set +x
 umask 077
 export HOMEBREW_NO_AUTO_UPDATE=1
+export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+export HOMEBREW_NO_INSTALL_UPGRADE=1
+export HOMEBREW_NO_INSTALL_CLEANUP=1
+export HOMEBREW_NO_ENV_HINTS=1
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 [[ "$(printenv CIRCLE_BRANCH || true)" == pip-lab-v12 ]] || { echo "Refusing unexpected branch" >&2; exit 2; }
@@ -33,6 +37,8 @@ unzip -Z1 .circleci-build/YouTube.ipa | grep -Fx 'Payload/YouTube.app/Info.plist
 unzip -q .circleci-build/YouTube.ipa -d .circleci-build/source
 PB=/usr/libexec/PlistBuddy
 YT_VERSION="$("$PB" -c 'Print :CFBundleShortVersionString' .circleci-build/source/Payload/YouTube.app/Info.plist)"
+# Do not pass the signed IPA link to submodule clones, Homebrew or build tools.
+unset YOUTUBE_IPA_URL
 [[ "$YT_VERSION" =~ ^[0-9]+([.][0-9]+){1,3}$ ]] || { echo "Invalid YouTube version" >&2; exit 2; }
 echo "Validated YouTube version $YT_VERSION"
 
@@ -72,8 +78,8 @@ if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
 fi
 python3 Scripts/apply_lc_streaming_v11.py
 
-brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed \
-  autoconf automake libtool pkgconf pngquant
+echo "Preparing macOS dependencies (no unrelated Homebrew upgrades)."
+bash Scripts/install_circleci_macos_deps.sh
 mkdir -p "$HOME/.local/bin"
 export PATH="$(brew --prefix make)/libexec/gnubin:$HOME/.local/bin:$PATH"
 export THEOS="$ROOT/.circleci-build/theos"
