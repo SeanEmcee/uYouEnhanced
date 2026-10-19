@@ -5,6 +5,9 @@
 version: 2.1
 
 parameters:
+  run_ipa_url_check:
+    type: boolean
+    default: false
   run_ipa_preflight:
     type: boolean
     default: false
@@ -30,7 +33,21 @@ jobs:
           name: Validate CircleCI IPA source and disabled-by-default gate
           command: |
             bash -n Scripts/build_circleci_ipa.sh
-            python3 -m unittest discover -s tests -p "test_circleci_ipa_config.py" -v
+            python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
+
+  # Low-credit, secret-safe check of the *actual* CircleCI project URL.
+  # Does not print the source URL, download it, or allocate a macOS runner.
+  ipa-url-check:
+    docker:
+      - image: cimg/python:3.12
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Validate the current project IPA URL without exposing the token
+          command: |
+            set +x
+            python3 Scripts/normalize_circleci_ipa_url.py >/dev/null
 
   build-youtube-ipa:
     macos:
@@ -61,6 +78,15 @@ jobs:
           destination: youtube-ipa
 
 workflows:
+  test-ipa-url:
+    when: << pipeline.parameters.run_ipa_url_check >>
+    jobs:
+      - ipa-url-check:
+          filters:
+            branches:
+              only:
+                - pip-lab-v12
+
   test-ipa-preflight:
     when: << pipeline.parameters.run_ipa_preflight >>
     jobs:
