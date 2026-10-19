@@ -1,64 +1,28 @@
-# uYouEnhanced macOS IPA delivery pipeline.
-# Default OFF: pushing commits does not start an expensive macOS build.
-# The source IPA URL belongs in CircleCI Project Settings > Environment Variables
-# as YOUTUBE_IPA_URL, never in pipeline parameters, git, or job logs.
+# Isolated Nyxian Crimson branch. All workflows are disabled by default.
+# macOS credits only begin after the owner approves in CircleCI.
 version: 2.1
-
 parameters:
-  run_ipa_url_check:
+  run_crimson_preflight:
     type: boolean
     default: false
-  run_ipa_preflight:
+  run_crimson_build:
     type: boolean
     default: false
-  run_ipa_build:
-    type: boolean
-    default: false
-  build_ffmpeg:
-    type: boolean
-    default: false
-  modern_ytuhd:
-    type: boolean
-    default: true
-
 jobs:
-  # Low-credit Linux validation. Does not download or build the IPA.
-  ipa-recipe-preflight:
+  crimson-preflight:
     docker:
       - image: cimg/python:3.12
     resource_class: small
     steps:
       - checkout
       - run:
-          name: Validate CircleCI IPA source and disabled-by-default gate
+          name: Validate safe Nyxian Crimson build recipe
           command: |
-            bash -n Scripts/build_circleci_ipa.sh
-            bash -n Scripts/preflight_circleci_injector.sh
-            bash -n Scripts/ci_macho_injector.sh
-            bash -n Scripts/install_circleci_macos_deps.sh
-            bash -n Scripts/build_circleci_ytuhd_deps.sh
-            bash -n Scripts/preflight_circleci_patch_chain.sh
-            python3 -m compileall -q Scripts/check_circleci_patched_sources.py Scripts/prepare_circleci_ytuhd.py Scripts/macho_lief_inject.py
-            python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
-            # Rehearse all source edits with actual pinned submodules.
-            # No private host IPA, Xcode, or macOS credits used here.
-            bash Scripts/preflight_circleci_patch_chain.sh
-
-  # Low-credit, secret-safe check of the *actual* CircleCI project URL.
-  # Does not print the source URL, download it, or allocate a macOS runner.
-  ipa-url-check:
-    docker:
-      - image: cimg/python:3.12
-    resource_class: small
-    steps:
-      - checkout
-      - run:
-          name: Validate the current project IPA URL without exposing the token
-          command: |
-            set +x
-            python3 Scripts/normalize_circleci_ipa_url.py >/dev/null
-
-  build-youtube-ipa:
+            set -euo pipefail
+            bash -n scripts/build_nyxian_crimson.sh
+            python3 -m compileall -q scripts/apply_crimson_assets.py scripts/unpack_assets.py scripts/verify_unsigned_ipa.py
+            python3 -m unittest discover -s tests -p "test_crimson_assets.py" -v
+  build-crimson-nyxian:
     macos:
       xcode: "26.5"
     resource_class: m4pro.medium
@@ -66,60 +30,36 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Validate source branch and available Xcode
+          name: Build Nyxian source with compiled Crimson icons
+          no_output_timeout: 40m
           command: |
-            set -euo pipefail
-            test "$CIRCLE_BRANCH" = pip-lab-v12
-            xcodebuild -version
-            bash -n Scripts/build_circleci_ipa.sh
-            test -f Scripts/check_circleci_headers.py
-            test -f Scripts/build_circleci_ipa.sh
-            test -f Scripts/verify_ipa.py
-      - run:
-          name: Prepare verified unsigned SideStore IPA
-          no_output_timeout: 30m
-          command: |
-            export RUN_IPA_BUILD=true
-            export BUILD_FFMPEG="<< pipeline.parameters.build_ffmpeg >>"
-            export MODERN_YTUHD="<< pipeline.parameters.modern_ytuhd >>"
-            bash Scripts/build_circleci_ipa.sh
+            export RUN_CRIMSON_BUILD=true
+            bash scripts/build_nyxian_crimson.sh
       - store_artifacts:
           path: build-artifacts
-          destination: youtube-ipa
-
+          destination: nyxian-crimson
 workflows:
-  test-ipa-url:
-    when: << pipeline.parameters.run_ipa_url_check >>
+  crimson-linux-preflight:
+    when: << pipeline.parameters.run_crimson_preflight >>
     jobs:
-      - ipa-url-check:
+      - crimson-preflight:
           filters:
             branches:
               only:
-                - pip-lab-v12
-
-  test-ipa-preflight:
-    when: << pipeline.parameters.run_ipa_preflight >>
+                - nyxian-crimson-circleci
+  crimson-manual-build:
+    when: << pipeline.parameters.run_crimson_build >>
     jobs:
-      - ipa-recipe-preflight:
-          filters:
-            branches:
-              only:
-                - pip-lab-v12
-
-  manual-youtube-ipa:
-    when: << pipeline.parameters.run_ipa_build >>
-    jobs:
-      # The macOS VM is NOT allocated until the user approves in CircleCI.
-      - approve-youtube-ipa:
+      - approve-crimson-build:
           type: approval
           filters:
             branches:
               only:
-                - pip-lab-v12
-      - build-youtube-ipa:
+                - nyxian-crimson-circleci
+      - build-crimson-nyxian:
           requires:
-            - approve-youtube-ipa
+            - approve-crimson-build
           filters:
             branches:
               only:
-                - pip-lab-v12
+                - nyxian-crimson-circleci
