@@ -15,6 +15,23 @@ class CircleCIIPAGates(unittest.TestCase):
         cls.config = CONFIG.read_text(encoding="utf-8")
         cls.script = BUILD.read_text(encoding="utf-8")
 
+    def test_live_url_check_defaults_off_and_runs_on_linux(self):
+        self.assertRegex(
+            self.config,
+            r"(?m)^  run_ipa_url_check:\n    type: boolean\n    default: false"
+        )
+        self.assertIn('run_ipa_url_check >>', self.config)
+        self.assertIn('ipa-url-check:', self.config)
+        self.assertIn('python3 Scripts/normalize_circleci_ipa_url.py >/dev/null', self.config)
+        self.assertNotIn('echo "$YOUTUBE_IPA_URL"', self.config)
+
+    def test_macos_build_uses_secret_safe_normalizer(self):
+        self.assertIn('Scripts/normalize_circleci_ipa_url.py', self.script)
+        self.assertIn('YOUTUBE_IPA_URL="$(python3', self.script)
+        self.assertNotIn('Invalid URL characters', self.script)
+        self.assertNotIn('--show-error', self.script)
+        self.assertIn('test_circleci_ipa*.py', self.config)
+
     def test_build_gate_defaults_off(self):
         self.assertRegex(
             self.config,
