@@ -5,6 +5,9 @@
 version: 2.1
 
 parameters:
+  run_ipa_preflight:
+    type: boolean
+    default: false
   run_ipa_build:
     type: boolean
     default: false
@@ -16,6 +19,19 @@ parameters:
     default: true
 
 jobs:
+  # Low-credit Linux validation. Does not download or build the IPA.
+  ipa-recipe-preflight:
+    docker:
+      - image: cimg/python:3.12
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Validate CircleCI IPA source and disabled-by-default gate
+          command: |
+            bash -n Scripts/build_circleci_ipa.sh
+            python3 -m unittest discover -s tests -p "test_circleci_ipa_config.py" -v
+
   build-youtube-ipa:
     macos:
       xcode: "26.5"
@@ -45,6 +61,15 @@ jobs:
           destination: youtube-ipa
 
 workflows:
+  test-ipa-preflight:
+    when: << pipeline.parameters.run_ipa_preflight >>
+    jobs:
+      - ipa-recipe-preflight:
+          filters:
+            branches:
+              only:
+                - pip-lab-v12
+
   manual-youtube-ipa:
     when: << pipeline.parameters.run_ipa_build >>
     jobs:
