@@ -1,6 +1,6 @@
 # CircleCI macOS YouTube IPA delivery (PiP Lab)
 
-Status: **workflow and build script committed, first macOS build unverified**.
+Status: **Linux preflight passed; first macOS attempt failed during source URL validation, before download or compilation**. The URL validator has now been updated to tolerate leading/trailing copied whitespace, with a separate safe check for the actual CircleCI secret.
 This does not create a public release, install to a device, or automatically sign
 the IPA. The original decrypted YouTube application must be supplied by its
 owner from a source they are authorized to use. The build signs no Apple
@@ -13,6 +13,7 @@ developer certificate: SideStore signs the resulting IPA for the device.
 - CircleCI config: `.circleci/config.yml`
 - Build: `Scripts/build_circleci_ipa.sh`
 - Validation: `Scripts/verify_ipa.py`
+- Secret-safe normalization: `Scripts/normalize_circleci_ipa_url.py`
 
 The workflow requests CircleCI macOS `m4pro.medium` with Xcode `26.5`,
 which matches the project's `iPhoneOS26.5.sdk` target. It retains the
@@ -45,10 +46,33 @@ binary through source control.
 
 Trigger a manual pipeline on `pip-lab-v12` with `run_ipa_preflight=true`
 and `run_ipa_build=false`. This starts a small Linux validation job that
-checks Bash syntax and eight source-level safety regressions, without
+checks Bash syntax and all IPA config/URL regression tests, without
 reading or downloading the decrypted IPA and without allocating a macOS VM.
 This still consumes a small number of CircleCI credits; check your Free
 balance first. The preflight is independent of the macOS build gate.
+
+## Verify the CircleCI URL without using a Mac (after build #3's failure)
+
+Build #3 failed immediately with `Invalid URL characters`. The previous
+check rejected even a harmless trailing line break/space in the value stored
+as `YOUTUBE_IPA_URL`. The new validator removes ASCII whitespace **only
+at the ends** of the URL. It rejects embedded literal whitespace or controls,
+a pasted `URL:` label, Markdown wrappers, non-HTTPS schemes, fragments and
+credential-bearing hosts. The value and signed query token are never printed.
+
+To check the **actual secret** without downloading or spending macOS credits,
+manually trigger the pipeline with `run_ipa_url_check=true` and
+`run_ipa_build=false` on `pip-lab-v12`. This creates only a small Linux
+job named `ipa-url-check`, which consumes some regular CircleCI compute
+credits. If it fails, replace the **CircleCI Project Settings → Environment
+Variables → YOUTUBE_IPA_URL** entry with a fresh **single-line, direct HTTPS**
+URL. Avoid spaces within the link, quotes, Markdown notation, or `URL:`.
+Never paste the URL into CircleCI pipeline parameters, GitHub, chat or logs.
+
+A passing check confirms the source URL **shape**, not that the remote
+signed link remains unexpired or that the downloaded IPA is valid.
+On the next approved macOS run, the source is downloaded and verified
+**before** installing dependencies or compiling, to minimize credit waste.
 
 ## Run exactly one build (requires owner approval)
 
@@ -59,11 +83,12 @@ non-secret pipeline parameters:
 | Parameter | Type | Suggested initial value |
 | --- | --- | --- |
 | `run_ipa_preflight` | Boolean | `false` (run separately first) |
+| `run_ipa_url_check` | Boolean | `false` (run separately first) |
 | `run_ipa_build` | Boolean | `true` |
 | `modern_ytuhd` | Boolean | `true` |
 | `build_ffmpeg` | Boolean | `false` for a faster first build, `true` for a full source rebuild |
 
-Both `run_ipa_preflight` and `run_ipa_build` default to **false**.
+All three run gates (`run_ipa_preflight`, `run_ipa_url_check`, and `run_ipa_build`) default to **false**.
 Setting `run_ipa_build` to `true`
 only opens the `approve-youtube-ipa` job. Approve that gate **in CircleCI**
 after checking the repo, branch, credit use and secret freshness. Only then
