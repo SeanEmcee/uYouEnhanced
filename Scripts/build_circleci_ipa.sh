@@ -49,7 +49,7 @@ set -- Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing \
   Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed \
   Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy \
   Tweaks/iSponsorBlock Tweaks/RemoteLog Tweaks/PSHeader \
-  Tweaks/protobuf Tweaks/libundirect
+  Tweaks/YouTubeHeader Tweaks/protobuf Tweaks/libundirect
 if [[ "$(printenv MODERN_YTUHD || true)" != true ]]; then set -- "$@" Tweaks/YTUHD; fi
 # Catch stale .gitmodules entries and mistyped names before any network clone.
 # Only an index mode 160000 gitlink is valid for git submodule update.
@@ -61,6 +61,9 @@ for module in "$@"; do
   fi
 done
 git submodule update --init --recursive -- "$@"
+# The Return YouTube Dislikes tweak imports <YouTubeHeader/*.h>. Ensure the
+# tracked header submodule is checked out before expensive compilation.
+python3 Scripts/check_circleci_headers.py
 if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
   rm -rf Tweaks/YTUHD
   git clone --depth 1 --recurse-submodules --branch master https://github.com/PoomSmart/YTUHD.git Tweaks/YTUHD
