@@ -33,6 +33,7 @@ jobs:
           name: Validate CircleCI IPA source and disabled-by-default gate
           command: |
             bash -n Scripts/build_circleci_ipa.sh
+            bash -n Scripts/install_circleci_macos_deps.sh
             python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
 
   # Low-credit, secret-safe check of the *actual* CircleCI project URL.
