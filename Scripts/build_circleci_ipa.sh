@@ -43,8 +43,17 @@ set -- Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing \
   Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed \
   Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy \
   Tweaks/iSponsorBlock Tweaks/RemoteLog Tweaks/PSHeader \
-  Tweaks/YouTube-X Tweaks/protobuf Tweaks/libundirect
+  Tweaks/protobuf Tweaks/libundirect
 if [[ "$(printenv MODERN_YTUHD || true)" != true ]]; then set -- "$@" Tweaks/YTUHD; fi
+# Catch stale .gitmodules entries and mistyped names before any network clone.
+# Only an index mode 160000 gitlink is valid for git submodule update.
+for module in "$@"; do
+  mode="$(git ls-files --stage -- "$module" | awk 'NR == 1 { print $1 }')"
+  if [[ "$mode" != "160000" ]]; then
+    echo "Build submodule is not a tracked gitlink: $module" >&2
+    exit 2
+  fi
+done
 git submodule update --init --recursive -- "$@"
 if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
   rm -rf Tweaks/YTUHD
