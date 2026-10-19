@@ -40,7 +40,8 @@ set -- Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing \
   Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality \
   Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed \
   Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy \
-  Tweaks/iSponsorBlock Tweaks/RemoteLog
+  Tweaks/iSponsorBlock Tweaks/RemoteLog Tweaks/PSHeader \
+  Tweaks/YouTube-X Tweaks/protobuf Tweaks/libundirect
 if [[ "$(printenv MODERN_YTUHD || true)" != true ]]; then set -- "$@" Tweaks/YTUHD; fi
 git submodule update --init --recursive -- "$@"
 if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
