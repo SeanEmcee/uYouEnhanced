@@ -17,6 +17,25 @@ MARKER = 'LC_PLAYBACK_STABILITY_V7'
 SOURCE = r'''
 #import <QuartzCore/QuartzCore.h>
 // LC_PLAYBACK_STABILITY_V7
+// Logos %property generates accessors but does not make their declarations
+// visible to Clang's static YTPlayerViewController type. Declare the exact
+// methods and property signatures that our v4/v7-v10 hook code uses.
+@interface YTPlayerViewController (LCPiPLabCompileSurface)
+@property (nonatomic, retain) UILongPressGestureRecognizer *lcEdgeHoldGesture;
+@property (nonatomic, assign) NSInteger lcEdgeHoldMode;
+@property (nonatomic, assign) float lcEdgeSavedSpeed;
+@property (nonatomic, retain) AVPlayer *lcEdgeAVPlayer;
+@property (nonatomic, retain) AVPlayerItem *lcEdgeAVItem;
+@property (nonatomic, copy) NSString *lcEdgeSpeedVideoID;
+@property (nonatomic, copy) NSString *lcRecoveryVideoIDV7;
+@property (nonatomic, assign) BOOL lcRecoveryTriedV7;
+@property (nonatomic, assign) BOOL lcRecoveryPendingV7;
+@property (nonatomic, assign) CFTimeInterval lcRecoveryNextCheckV7;
+- (void)lcEdgeRestorePlayback;
+- (void)lcEdgeRefreshHold;
+- (void)lcEdgeHoldChanged:(UILongPressGestureRecognizer *)gesture;
+- (void)lcCheckVisibleLoadErrorV7;
+@end
 // 2x is routed ONLY through the active YouTube varispeed controller by default.
 // Directly manipulating the underlying AVPlayer's rate may desynchronize its
 // audio renderer. All transitions are one-shot and checked against video ID.
