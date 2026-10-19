@@ -236,6 +236,8 @@ void UYTLogInstall(void) {
         UYTWriteLine(@"[UYT-I]", UYTNowStamp(), [NSString stringWithFormat:@"[uYouEnhanced] == session start %@ ==", stamp]);
 #endif
 
+        // LC_FAST_START_V13: host stderr capture is optional to reduce launch overhead.
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"UYTDiagnosticsCaptureHostStderr"]) {
         int fds[2];
         if (pipe(fds) == 0) {
             int orig = dup(STDERR_FILENO);
@@ -254,6 +256,7 @@ void UYTLogInstall(void) {
                 close(fds[1]);
             }
         }
+        } // LC_FAST_START_V13: retain internal warning/error and exception capture.
 
         NSSetUncaughtExceptionHandler(&UYTHandleUncaught);
     });
