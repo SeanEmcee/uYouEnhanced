@@ -118,7 +118,7 @@ If the build fails:
 
 - **Download step:** URL expired/redirected or returned invalid ZIP; refresh
   the CircleCI project secret, then approve a new build.
-- **Submodule step:** CircleCI build #7 downloaded YouTube 21.41.5 but
+- **Submodule step:** The latest CircleCI macOS attempt downloaded YouTube 21.41.5 but
   failed at `Tweaks/YouTube-X`, which was an orphaned `.gitmodules` entry,
   not a real tracked gitlink. The CircleCI script and manifest now omit it,
   and `test_circleci_ipa_submodules.py` checks the full list against the
