@@ -118,6 +118,45 @@ while IFS= read -r ext; do
   [[ "$ext" == */PlugIns/* ]] && continue
   zip -q -d "$TMP_IPA" "$ext/*" || true
 done <.circleci-build/appex-list.txt
+# Preserve the alternate app icons present in the original GitHub workflow.
+# Validate opacity/size so iOS does not refuse malformed alternate icons.
+mkdir -p .circleci-build/iconwork/icons
+(
+  cd .circleci-build/iconwork
+  unzip -q "$ROOT/$TMP_IPA" 'Payload/YouTube.app/Info.plist'
+  for source_icon in "$ROOT"/Localizations/uYouPlus.bundle/AppIcons/*.png; do
+    [[ -f "$source_icon" ]] || continue
+    target="icons/$(basename "$source_icon")"
+    pngquant --quality=80-95 --strip --skip-if-larger "$source_icon" \
+      --output "$target" >/dev/null 2>&1 || true
+    [[ -f "$target" ]] || cp "$source_icon" "$target"
+  done
+  for icon in icons/*.png; do
+    [[ -f "$icon" ]] || continue
+    spec="$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$icon" 2>/dev/null |
+      awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} /hasAlpha/{a=$2} END{print w"x"h" alpha="a}')"
+    [[ "$spec" == "1024x1024 alpha=no"* ]] || {
+      echo "Bad alternate icon dimensions or alpha: $(basename "$icon")" >&2
+      exit 2
+    }
+  done
+  plist=Payload/YouTube.app/Info.plist
+  for key in CFBundleIcons 'CFBundleIcons~ipad'; do
+    "$PB" -c "Add :$key dict" "$plist" 2>/dev/null || true
+    "$PB" -c "Add :$key:CFBundleAlternateIcons dict" "$plist" 2>/dev/null || true
+  done
+  for icon in icons/*.png; do
+    [[ -f "$icon" ]] || continue
+    name="$(basename "$icon" .png)"
+    cp "$icon" "Payload/YouTube.app/$name.png"
+    for key in CFBundleIcons 'CFBundleIcons~ipad'; do
+      "$PB" -c "Add :$key:CFBundleAlternateIcons:$name dict" "$plist" 2>/dev/null || true
+      "$PB" -c "Add :$key:CFBundleAlternateIcons:$name:CFBundleIconFiles array" "$plist" 2>/dev/null || true
+      "$PB" -c "Add :$key:CFBundleAlternateIcons:$name:CFBundleIconFiles:0 string $name" "$plist" 2>/dev/null || true
+    done
+  done
+  zip -q "$ROOT/$TMP_IPA" "$plist" Payload/YouTube.app/*.png
+)
 FINAL="$(printf 'build-artifacts/uYouEnhanced_%s_v3.0.5.ipa' "$YT_VERSION")"
 cp "$TMP_IPA" "$FINAL"
 python3 Scripts/verify_ipa.py "$FINAL"
