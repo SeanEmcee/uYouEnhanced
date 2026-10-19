@@ -89,7 +89,7 @@ UI_PATCH=r'''    // LC_AV1_HW_PRIORITY_V12
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Codec report copied"
                 message:report preferredStyle:UIAlertControllerStyleAlert];
             [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            UIViewController *v=[UIApplication sharedApplication].keyWindow.rootViewController;
+            UIViewController *v=LCPresenter();
             while (v.presentedViewController) v=v.presentedViewController;
             if (v) [v presentViewController:alert animated:YES completion:nil];
             return YES;
