@@ -68,7 +68,7 @@ export PATH="$(brew --prefix make)/libexec/gnubin:$HOME/.local/bin:$PATH"
 export THEOS="$ROOT/.circleci-build/theos"
 git clone --quiet --depth 1 --recurse-submodules https://github.com/theos/theos.git "$THEOS"
 SDK_VERSION=26.5
-git clone --quiet -n --depth 1 --filter=tree:0 https://github.com/aricloverALT/sdks.git .circleci-build/sdks
+git clone --quiet -n --depth 1 --filter=tree:0 https://github.com/aricloverEXTRA/sdks.git .circleci-build/sdks
 git -C .circleci-build/sdks sparse-checkout set --no-cone "iPhoneOS$SDK_VERSION.sdk"
 git -C .circleci-build/sdks checkout --quiet
 mkdir -p "$THEOS/sdks"
