@@ -87,7 +87,7 @@ SETTINGS_CONTENT = r'''    // LC_STREAMING_V11: Values are AVPlayer hints, NOT C
                 }]];
             }
             [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-            UIViewController *presenter=[UIApplication sharedApplication].keyWindow.rootViewController;
+            UIViewController *presenter=LCPresenter();
             while (presenter.presentedViewController) presenter=presenter.presentedViewController;
             if (presenter) [presenter presentViewController:sheet animated:YES completion:nil];
             return YES;
@@ -114,7 +114,7 @@ SETTINGS_CONTENT = r'''    // LC_STREAMING_V11: Values are AVPlayer hints, NOT C
                 }]];
             }
             [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-            UIViewController *presenter=[UIApplication sharedApplication].keyWindow.rootViewController;
+            UIViewController *presenter=LCPresenter();
             while (presenter.presentedViewController) presenter=presenter.presentedViewController;
             if (presenter) [presenter presentViewController:sheet animated:YES completion:nil];
             return YES;
@@ -137,7 +137,7 @@ SETTINGS_CONTENT = r'''    // LC_STREAMING_V11: Values are AVPlayer hints, NOT C
             UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Streaming state copied"
                 message:report preferredStyle:UIAlertControllerStyleAlert];
             [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            UIViewController *p=[UIApplication sharedApplication].keyWindow.rootViewController;
+            UIViewController *p=LCPresenter();
             while (p.presentedViewController) p=p.presentedViewController;
             if (p) [p presentViewController:a animated:YES completion:nil];
             return YES;
