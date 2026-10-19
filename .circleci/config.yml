@@ -34,11 +34,12 @@ jobs:
           command: |
             bash -n Scripts/build_circleci_ipa.sh
             bash -n Scripts/install_circleci_macos_deps.sh
-            # Initialize only the small, pinned public header dependency.
-            # No private IPA download, Xcode, or macOS credit spend here.
-            git submodule update --init -- Tweaks/YouTubeHeader
-            python3 Scripts/check_circleci_headers.py
+            bash -n Scripts/preflight_circleci_patch_chain.sh
+            python3 -m compileall -q Scripts/check_circleci_patched_sources.py
             python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
+            # Rehearse all source edits with actual pinned submodules.
+            # No private host IPA, Xcode, or macOS credits used here.
+            bash Scripts/preflight_circleci_patch_chain.sh
 
   # Low-credit, secret-safe check of the *actual* CircleCI project URL.
   # Does not print the source URL, download it, or allocate a macOS runner.
