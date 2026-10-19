@@ -33,10 +33,12 @@ jobs:
           name: Validate CircleCI IPA source and disabled-by-default gate
           command: |
             bash -n Scripts/build_circleci_ipa.sh
+            bash -n Scripts/preflight_circleci_injector.sh
+            bash -n Scripts/ci_macho_injector.sh
             bash -n Scripts/install_circleci_macos_deps.sh
             bash -n Scripts/build_circleci_ytuhd_deps.sh
             bash -n Scripts/preflight_circleci_patch_chain.sh
-            python3 -m compileall -q Scripts/check_circleci_patched_sources.py Scripts/prepare_circleci_ytuhd.py
+            python3 -m compileall -q Scripts/check_circleci_patched_sources.py Scripts/prepare_circleci_ytuhd.py Scripts/macho_lief_inject.py
             python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
             # Rehearse all source edits with actual pinned submodules.
             # No private host IPA, Xcode, or macOS credits used here.
