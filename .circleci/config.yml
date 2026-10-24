@@ -38,7 +38,7 @@ jobs:
             bash -n Scripts/install_circleci_macos_deps.sh
             bash -n Scripts/build_circleci_ytuhd_deps.sh
             bash -n Scripts/preflight_circleci_patch_chain.sh
-            python3 -m compileall -q Scripts/check_circleci_patched_sources.py Scripts/prepare_circleci_ytuhd.py Scripts/macho_lief_inject.py
+            python3 -m compileall -q Scripts/check_circleci_patched_sources.py Scripts/prepare_circleci_ytuhd.py Scripts/macho_lief_inject.py Scripts/apply_lc_controls_v14.py
             python3 -m unittest discover -s tests -p "test_circleci_ipa*.py" -v
             # Rehearse all source edits with actual pinned submodules.
             # No private host IPA, Xcode, or macOS credits used here.
@@ -69,7 +69,7 @@ jobs:
           name: Validate source branch and available Xcode
           command: |
             set -euo pipefail
-            test "$CIRCLE_BRANCH" = pip-lab-v12
+            test "$CIRCLE_BRANCH" = pip-lab-v12 || test "$CIRCLE_BRANCH" = fix/youtube-controls-playback-v14
             xcodebuild -version
             bash -n Scripts/build_circleci_ipa.sh
             test -f Scripts/check_circleci_headers.py
@@ -96,6 +96,7 @@ workflows:
             branches:
               only:
                 - pip-lab-v12
+                - fix/youtube-controls-playback-v14
 
   test-ipa-preflight:
     when: << pipeline.parameters.run_ipa_preflight >>
@@ -105,6 +106,7 @@ workflows:
             branches:
               only:
                 - pip-lab-v12
+                - fix/youtube-controls-playback-v14
 
   manual-youtube-ipa:
     when: << pipeline.parameters.run_ipa_build >>
@@ -116,6 +118,7 @@ workflows:
             branches:
               only:
                 - pip-lab-v12
+                - fix/youtube-controls-playback-v14
       - build-youtube-ipa:
           requires:
             - approve-youtube-ipa
@@ -123,3 +126,4 @@ workflows:
             branches:
               only:
                 - pip-lab-v12
+                - fix/youtube-controls-playback-v14

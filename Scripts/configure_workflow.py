@@ -301,6 +301,24 @@ def rewrite_workflow(source: str) -> str:
     # the same YTUHD format hook. v12 supersedes v11 for fresh and upgrade builds.
     return replace_once(s,V11_CODEC_STEP,V12_AV1_STEP,'v11 to v12 codec preference replacement')
 
+# v14: preserve cold-launch/gesture/playback fixes in regenerated workflows.
+_v12_rewrite_workflow = rewrite_workflow
+V14_CONTROLS_STEP = (
+    '\n      - name: Verify PiP Lab v14 patch syntax\n'
+    '        run: python3 -m py_compile main/Scripts/apply_lc_controls_v14.py\n'
+    '\n      - name: Repair cold-launch speed, 2x haptics, left rewind, and speed overlay v14\n'
+    '        run: python3 main/Scripts/apply_lc_controls_v14.py\n'
+)
+
+def rewrite_workflow(source: str) -> str:
+    s = _v12_rewrite_workflow(source)
+    if V14_CONTROLS_STEP.strip() in s:
+        if s.count('python3 main/Scripts/apply_lc_controls_v14.py') != 1:
+            raise ValueError('v14 patch step duplicated')
+        return s
+    return replace_once(s, V11_STREAM_STEP, V11_STREAM_STEP + V14_CONTROLS_STEP,
+                        'v14 controls after v11 streaming')
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--repo', type=Path, default=Path('.'), help='Local Git clone root')
@@ -309,7 +327,7 @@ def main() -> int:
     workflow = repo / '.github/workflows/buildapp.yml'
     if not workflow.is_file():
         raise FileNotFoundError(f'Cannot find {workflow}')
-    for script in ['apply_lc_pip.py', 'apply_lc_shorts.py', 'apply_lc_preview.py', 'apply_lc_counts.py', 'apply_lc_playback.py', 'apply_lc_miniplayer.py', 'apply_lc_miniplayer_v9.py', 'apply_lc_performance_v10.py', 'apply_lc_hwvp9.py', 'apply_lc_hardware_diagnostic.py', 'apply_lc_decoder_path_v11.py', 'apply_lc_streaming_v11.py', 'verify_ipa.py']:
+    for script in ['apply_lc_pip.py', 'apply_lc_shorts.py', 'apply_lc_preview.py', 'apply_lc_counts.py', 'apply_lc_playback.py', 'apply_lc_miniplayer.py', 'apply_lc_miniplayer_v9.py', 'apply_lc_performance_v10.py', 'apply_lc_hwvp9.py', 'apply_lc_hardware_diagnostic.py', 'apply_lc_decoder_path_v11.py', 'apply_lc_streaming_v11.py', 'apply_lc_controls_v14.py', 'verify_ipa.py']:
         if not (repo/'Scripts'/script).is_file():
             raise FileNotFoundError(f'Copy Scripts/{script} into this repo before running')
     original = workflow.read_text(encoding='utf-8')
@@ -325,13 +343,13 @@ def main() -> int:
             raise ValueError('Invalid YAML: jobs missing')
         steps = payload['jobs']['build']['steps']
         names = [step.get('name') for step in steps]
-        for label in ('Apply LiveContainer PiP Lab', 'Apply unified edge hold v4 adapter', 'Fix overlapping feed preview audio v5', 'Restore missing like and dislike counts v6', 'Repair 2x audio and guard failed load v7', 'Protect floating MiniPlayer gestures v8', 'Repair MiniPlayer touch and early rendering v9', 'Add 4K 2x playback diagnostics v10', 'Record and select YTUHD decoder (v10)', 'Register supplemental VP9 hardware if available v11', 'Add hardware VP9 readout v11', 'Report YTUHD selected decoder path v11', 'Prefer hardware AV1 then VP9 v12', 'Add automatic buffer and client rate controls v11', 'Verify mandatory YouPiP, YTUHD and iSponsorBlock'):
+        for label in ('Apply LiveContainer PiP Lab', 'Apply unified edge hold v4 adapter', 'Fix overlapping feed preview audio v5', 'Restore missing like and dislike counts v6', 'Repair 2x audio and guard failed load v7', 'Protect floating MiniPlayer gestures v8', 'Repair MiniPlayer touch and early rendering v9', 'Add 4K 2x playback diagnostics v10', 'Record and select YTUHD decoder (v10)', 'Register supplemental VP9 hardware if available v11', 'Add hardware VP9 readout v11', 'Report YTUHD selected decoder path v11', 'Prefer hardware AV1 then VP9 v12', 'Add automatic buffer and client rate controls v11', 'Verify PiP Lab v14 patch syntax', 'Repair cold-launch speed, 2x haptics, left rewind, and speed overlay v14', 'Verify mandatory YouPiP, YTUHD and iSponsorBlock'):
             if names.count(label) != 1:
                 raise ValueError(f'Invalid YAML: missing/duplicate {label}')
     workflow.write_text(new, encoding='utf-8', newline='\n')
     print(f'Updated: {workflow}')
     print('Required components: YouPiP=ON; YTUHD=ON; iSponsorBlock=ON (cannot be unchecked)')
-    print('Added v12 hardware AV1>VP9 preference and report, with hardware VP9 registration and AVPlayer buffer/bitrate controls (Auto default).')
+    print('Retained v12 hardware decoder settings and installed v14 playback controls fixes.')
     print('Next: inspect git diff, commit and push, then run GitHub Actions.')
     return 0
 

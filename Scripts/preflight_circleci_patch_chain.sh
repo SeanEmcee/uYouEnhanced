@@ -5,12 +5,12 @@ set -Eeuo pipefail
 set +x
 cd "$(dirname "$0")/.."
 unset YOUTUBE_IPA_URL
-[[ "${CIRCLE_BRANCH:-}" == "pip-lab-v12" ]] || {
+[[ "${CIRCLE_BRANCH:-}" == "pip-lab-v12" || "${CIRCLE_BRANCH:-}" == "fix/youtube-controls-playback-v14" ]] || {
   echo "Refusing to replay sources outside pip-lab-v12" >&2
   exit 2
 }
 echo "Initializing pinned PiP, dislike, and header source dependencies."
-git submodule update --init -- Tweaks/YouTubeHeader Tweaks/YouPiP Tweaks/Return-YouTube-Dislikes
+git submodule update --init -- Tweaks/YouTubeHeader Tweaks/YouPiP Tweaks/Return-YouTube-Dislikes Tweaks/YouSpeed Tweaks/YTHoldForSpeed
 python3 Scripts/check_circleci_headers.py
 
 # This smoke clone intentionally avoids the large native decoder submodules:
@@ -35,5 +35,6 @@ done
 python3 Scripts/apply_lc_decoder_path_v11.py
 python3 Scripts/apply_lc_av1_priority_v12.py
 python3 Scripts/apply_lc_streaming_v11.py
+python3 Scripts/apply_lc_controls_v14.py
 python3 Scripts/check_circleci_patched_sources.py
 echo "Source patch rehearsal succeeded (not an Xcode compilation)."

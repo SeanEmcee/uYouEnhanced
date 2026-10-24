@@ -132,6 +132,12 @@ jobs:
       - name: Add automatic buffer and client rate controls v11
         run: python3 main/Scripts/apply_lc_streaming_v11.py
 
+      - name: Verify PiP Lab v14 patch syntax
+        run: python3 -m py_compile main/Scripts/apply_lc_controls_v14.py
+
+      - name: Repair cold-launch speed, 2x haptics, left rewind, and speed overlay v14
+        run: python3 main/Scripts/apply_lc_controls_v14.py
+
       - name: Install Dependencies
         run: |
           brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed autoconf automake libtool pkgconf pngquant

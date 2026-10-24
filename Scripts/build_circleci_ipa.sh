@@ -10,7 +10,7 @@ export HOMEBREW_NO_INSTALL_CLEANUP=1
 export HOMEBREW_NO_ENV_HINTS=1
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-[[ "$(printenv CIRCLE_BRANCH || true)" == pip-lab-v12 ]] || { echo "Refusing unexpected branch" >&2; exit 2; }
+[[ "$(printenv CIRCLE_BRANCH || true)" == pip-lab-v12 || "$(printenv CIRCLE_BRANCH || true)" == fix/youtube-controls-playback-v14 ]] || { echo "Refusing unexpected branch" >&2; exit 2; }
 [[ "$(printenv RUN_IPA_BUILD || true)" == true ]] || { echo "Build approval gate missing" >&2; exit 2; }
 # Remove accidental leading/trailing copied whitespace, but reject any
 # whitespace *within* the URL. The validator reads CircleCI's secret only
@@ -93,6 +93,7 @@ if [[ "$(printenv MODERN_YTUHD || true)" == true ]]; then
   python3 Scripts/apply_lc_av1_priority_v12.py
 fi
 python3 Scripts/apply_lc_streaming_v11.py
+python3 Scripts/apply_lc_controls_v14.py
 
 echo "Preparing macOS dependencies (no unrelated Homebrew upgrades)."
 bash Scripts/install_circleci_macos_deps.sh
