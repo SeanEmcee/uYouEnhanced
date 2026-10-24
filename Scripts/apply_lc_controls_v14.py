@@ -194,6 +194,16 @@ def patch_speed(text):
         "    CGFloat buttonY = currentValueLabel.frame.origin.y + currentValueLabel.frame.size.height + 15;",
         "    CGFloat buttonY = slider.frame.origin.y + slider.frame.size.height + 35;",
         "v14 preset placement")
+    # More Speeds hooks MLHAMQueuePlayer for >2x support; its internalSetRate
+    # shortcut also intercepted standard 2x and can bypass native A/V sync.
+    # Keep the native YouTube rate setter for every supported <=2x rate.
+    text = once(text,
+        "- (void)setRate:(float)newRate {\\n    float rate = [[self valueForKey:@\\"_rate\\"] floatValue];".replace("\\\\n", "\\n"),
+        "- (void)setRate:(float)newRate {\\n"
+        "    // LC_NATIVE_AUDIO_2X_V14: don't bypass native HAM speed synchronization.\\n"
+        "    if (newRate > 0.0f && newRate <= 2.0f) { %orig; return; }\\n"
+        "    float rate = [[self valueForKey:@\\"_rate\\"] floatValue];".replace("\\\\n", "\\n"),
+        "v14 <=2x native A/V path")
     return text
 
 def patch_hold(text):
