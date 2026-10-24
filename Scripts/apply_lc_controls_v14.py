@@ -96,11 +96,11 @@ def patch_pip(text):
         "%property (nonatomic, copy) NSString *lcRewindVideoIDV14;",
         "v14 gesture state")
     text = once(text,
-        "@property (nonatomic, retain) AVPlayerItem *lcEdgeAVItem;\\n"
+        "@property (nonatomic, retain) AVPlayerItem *lcEdgeAVItem;\n"
         "@property (nonatomic, copy) NSString *lcEdgeSpeedVideoID;",
-        "@property (nonatomic, retain) AVPlayerItem *lcEdgeAVItem;\\n"
-        "@property (nonatomic, retain) NSTimer *lcRewindTimerV14;\\n"
-        "@property (nonatomic, copy) NSString *lcRewindVideoIDV14;\\n"
+        "@property (nonatomic, retain) AVPlayerItem *lcEdgeAVItem;\n"
+        "@property (nonatomic, retain) NSTimer *lcRewindTimerV14;\n"
+        "@property (nonatomic, copy) NSString *lcRewindVideoIDV14;\n"
         "@property (nonatomic, copy) NSString *lcEdgeSpeedVideoID;",
         "v14 compile-visible state")
     text = once(text,
